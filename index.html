@@ -1,0 +1,1849 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body><title>Visor en sitio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: lámina de taller, igual que el visor 5D. Cajetín arriba; visor 3D a la izquierda con la barra de estado de obra
+   debajo; panel de la derecha con la entrada a la cámara, capas y los dos puntos QR. En la cámara, la interfaz flota
+   sobre la imagen en bandas oscuras (arriba estado, abajo controles) para leerse con sol o adentro. */
+:root{
+  --bg:#eceff2; --surface:#fafbfc; --surface-2:#f1f3f6; --ink:#121820; --ink-2:#435060; --muted:#6c7785;
+  --line:#d5dbe2; --line-2:#b8c1cb; --accent:#1c4f9c; --accent-soft:#dde7f6; --on-accent:#ffffff;
+  --scene:#e4e8ec; --scene-ink:#26303b; --dem:#d64541; --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+  --good-ink:#006300; --warn-ink:#7a5000; --crit-ink:#b02a2a;
+  --xr-band:rgba(12,16,22,.82); --xr-band-2:rgba(255,255,255,.08); --xr-ink:#f3f6fa; --xr-muted:#b4bfcc; --xr-accent:#8bb2f3; --xr-line:#38e1ff;
+  --f-disp:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1217; --surface:#151a21; --surface-2:#1b222b; --ink:#e5eaf0; --ink-2:#aeb8c4; --muted:#808b99;
+    --line:#28303a; --line-2:#3b4551; --accent:#8bb2f3; --accent-soft:#1d2a40; --on-accent:#0e1217;
+    --scene:#10151b; --scene-ink:#c8d1db; --good-ink:#3fcf4a; --warn-ink:#f5c35a; --crit-ink:#ff8f86; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1217; --surface:#151a21; --surface-2:#1b222b; --ink:#e5eaf0; --ink-2:#aeb8c4; --muted:#808b99;
+  --line:#28303a; --line-2:#3b4551; --accent:#8bb2f3; --accent-soft:#1d2a40; --on-accent:#0e1217;
+  --scene:#10151b; --scene-ink:#c8d1db; --good-ink:#3fcf4a; --warn-ink:#f5c35a; --crit-ink:#ff8f86; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg);color:var(--ink)}
+body{font:15px/1.45 var(--f-body)}
+.pagina{max-width:1500px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px;display:grid;gap:14px}
+h1,h2,h3{font-family:var(--f-disp);font-weight:600;margin:0;text-wrap:balance;letter-spacing:.01em}
+h2{font-size:1.3rem;line-height:1.15} h3{font-size:1.05rem;line-height:1.2}
+p{margin:0}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-size:.86em;font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.eti{font:600 .7rem/1.2 var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+
+/* cajetín */
+.cajetin{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);border:1px solid var(--line-2);background:var(--surface);border-radius:4px}
+.cj-titulo{padding:14px 18px;border-right:1px solid var(--line-2);display:grid;gap:3px;align-content:center;min-width:0}
+.cj-titulo h1{font-size:clamp(1.7rem,3vw,2.3rem);line-height:1;font-weight:700}
+.cj-sub{color:var(--ink-2)}
+.cj-campos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:0}
+.cj-campos>div{padding:9px 14px;border-left:1px solid var(--line);min-width:0}
+.cj-campos>div:first-child{border-left:0}
+.cj-campos dd{margin:3px 0 0;font:600 1.02rem/1.25 var(--f-disp)}
+.cj-leyenda{grid-column:1/-1;padding:6px 18px;border-top:1px solid var(--line-2);font-size:.8rem;color:var(--crit-ink);font-weight:500}
+@media (max-width:860px){.cajetin{grid-template-columns:1fr}.cj-titulo{border-right:0;border-bottom:1px solid var(--line)}.cj-campos{grid-template-columns:1fr 1fr}.cj-campos>div:nth-child(3){grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}}
+
+/* app */
+.app{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:12px;align-items:start}
+@media (max-width:980px){.app{grid-template-columns:minmax(0,1fr)}}
+.visor-col{display:grid;gap:8px;min-width:0}
+.visor{position:relative;height:clamp(380px,62vh,700px);background:var(--scene);border:1px solid var(--line);border-radius:4px;overflow:hidden;touch-action:none;user-select:none}
+.visor canvas{display:block;width:100%;height:100%;cursor:grab}
+.visor canvas:active{cursor:grabbing}
+.hud{position:absolute;left:12px;top:10px;display:grid;gap:2px;pointer-events:none;color:var(--scene-ink)}
+.hud strong{font:600 1rem/1.1 var(--f-disp);letter-spacing:.02em}
+.hud span{font-size:.78rem;opacity:.85}
+@media (max-width:520px){.hud span{display:none}}
+@media (min-width:981px){.visor-col{position:sticky;top:calc(12px + env(safe-area-inset-top,0px))}}
+.visor-acc{position:absolute;right:10px;top:10px;display:flex;gap:4px}
+.visor-acc button,.btn-sec{border:1px solid var(--line-2);background:var(--surface);border-radius:3px;padding:5px 10px;font:600 .82rem/1.2 var(--f-body);cursor:pointer;color:var(--ink)}
+.visor-acc button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.falla3d{position:absolute;inset:0;display:grid;place-content:center;gap:6px;padding:24px;text-align:center;color:var(--scene-ink);max-width:46ch;margin:auto}
+.falla3d strong{font:600 1.1rem/1.2 var(--f-disp)}
+
+.fase-barra{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:10px 14px;display:grid;gap:6px}
+.fase-cab{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;justify-content:space-between}
+.fase-cab strong{font:600 1.15rem/1.1 var(--f-disp)}
+.fase-cab span{font-size:.84rem;color:var(--ink-2)}
+.fase-rango{width:100%;accent-color:var(--accent);margin:0}
+.fase-ticks{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));font:500 .7rem/1.1 var(--f-mono);color:var(--muted);text-align:center}
+.fase-ticks span:first-child{text-align:left}.fase-ticks span:last-child{text-align:right}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:14px;display:grid;gap:18px;min-width:0}
+.panel>section{display:grid;gap:8px;min-width:0}
+.panel>section+section{padding-top:14px;border-top:1px solid var(--line)}
+.estado-ra{display:flex;gap:8px;align-items:flex-start;font-size:.88rem;color:var(--ink-2)}
+.pill{display:inline-flex;align-items:center;gap:5px;font:600 .74rem/1 var(--f-body);padding:4px 9px 4px 7px;border-radius:999px;border:1px solid var(--line-2);white-space:nowrap;background:var(--surface)}
+.pill::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c,var(--muted))}
+.modos{display:grid;gap:8px}
+.modo{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 12px;align-items:center;text-align:left;border:1px solid var(--line-2);background:var(--surface-2);border-radius:4px;padding:10px 12px;cursor:pointer}
+.modo svg{grid-row:span 2;width:30px;height:30px;stroke:var(--accent);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.modo b{font:600 1.08rem/1.15 var(--f-disp)}
+.modo small{font-size:.8rem;color:var(--ink-2);line-height:1.3}
+.modo:not(:disabled):hover{border-color:var(--accent);background:var(--accent-soft)}
+.modo:disabled{cursor:not-allowed;opacity:.55}
+.capas{display:grid;gap:2px}
+.capas label{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:8px;align-items:center;cursor:pointer;padding:4px 2px;border-radius:3px;font-size:.9rem}
+.capas label:hover{background:var(--surface-2)}
+.sw{width:12px;height:12px;border-radius:2px;background:var(--c);display:inline-block;border:1px solid rgba(0,0,0,.15)}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:4px;overflow:hidden;width:max-content}
+.seg button{border:0;background:transparent;padding:4px 10px;cursor:pointer;font:600 .82rem/1.3 var(--f-body);color:var(--ink-2)}
+.seg button+button{border-left:1px solid var(--line-2)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.refs{display:grid;gap:8px}
+.ref{border:1px solid var(--line);border-radius:4px;padding:9px 11px;display:grid;gap:4px;font-size:.86rem;background:var(--surface-2)}
+.ref-cab{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chip-id{font:500 .86rem/1 var(--f-mono);background:var(--ink);color:var(--surface);padding:4px 6px;border-radius:3px}
+.ref-cab b{font:600 1rem/1.2 var(--f-disp)}
+.ref p{color:var(--ink-2)}
+.nota{font-size:.82rem;color:var(--ink-2);background:var(--surface-2);padding:8px 10px;border-radius:3px}
+.pasos{margin:0;padding-left:1.3em;display:grid;gap:6px;font-size:.88rem;color:var(--ink-2)}
+.pasos b{color:var(--ink);font-weight:600}
+.btn{border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);border-radius:4px;padding:8px 14px;font:600 .9rem/1.2 var(--f-body);cursor:pointer;justify-self:start}
+
+/* ================= interfaz sobre la cámara (dom-overlay) ================= */
+.xr{position:fixed;inset:0;z-index:50;display:grid;grid-template-rows:auto minmax(0,1fr) auto;color:var(--xr-ink);font:16px/1.35 var(--f-body);pointer-events:auto;touch-action:none;background:transparent}
+.xr-top{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;background:var(--xr-band);padding:calc(10px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px))}
+.xr-modo{font:700 1.15rem/1 var(--f-disp);letter-spacing:.03em;text-transform:uppercase}
+.xr-estado{flex:1 1 260px;min-width:0;color:var(--xr-muted);font-size:.95rem}
+.xr-estado b{color:var(--xr-ink);font-weight:600}
+.xr button{font:600 1rem/1.15 var(--f-body);border-radius:6px;cursor:pointer}
+.xb{border:1px solid rgba(255,255,255,.28);background:var(--xr-band-2);color:var(--xr-ink);padding:10px 14px;min-height:44px}
+.xb[aria-pressed="true"]{background:var(--xr-accent);color:#0c1016;border-color:var(--xr-accent)}
+.xb-pri{border:1px solid var(--xr-accent);background:var(--xr-accent);color:#0c1016;padding:12px 20px;min-height:48px;font-size:1.05rem!important}
+.xb-pri:disabled{opacity:.4;cursor:not-allowed}
+.mira{position:fixed;left:50%;top:50%;width:46px;height:46px;transform:translate(-50%,-50%);pointer-events:none;border:2px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.45)}
+.mira::before,.mira::after{content:"";position:absolute;background:rgba(255,255,255,.95);box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+.mira::before{left:50%;top:-10px;bottom:-10px;width:2px;transform:translateX(-50%)}
+.mira::after{top:50%;left:-10px;right:-10px;height:2px;transform:translateY(-50%)}
+.mira.lista{border-color:var(--xr-line)}
+.xr-abajo{display:grid;justify-items:center;padding:0 max(12px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+.xr-panel{width:min(820px,100%);background:var(--xr-band);border-radius:10px;padding:12px 14px;display:grid;gap:10px}
+.xr-fila{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.xr-paso{font:600 1.15rem/1.2 var(--f-disp)}
+.xr-sub{color:var(--xr-muted);font-size:.92rem}
+.xr-fases{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.xr-fases button{flex:0 0 auto;padding:8px 12px;min-height:40px;font-size:.92rem!important}
+.xr-res{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.xr-res div{background:var(--xr-band-2);border-radius:6px;padding:8px 10px;display:grid;gap:2px}
+.xr-res b{font:600 1.35rem/1.1 var(--f-disp)}
+.xr-res span{font-size:.8rem;color:var(--xr-muted)}
+.xr-ajuste{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.xr-ajuste button{padding:10px 6px}
+.xr-pill{display:inline-flex;align-items:center;gap:6px;font:600 .9rem/1 var(--f-body);padding:6px 10px;border-radius:999px;background:var(--xr-band-2)}
+.xr-pill::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--c,#999)}
+@media (max-width:640px){.xr-res{grid-template-columns:1fr 1fr}.xr-ajuste{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ================= hoja de referencias (impresión carta) ================= */
+.hoja-vista{position:fixed;inset:0;z-index:60;background:var(--bg);overflow:auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:calc(12px + env(safe-area-inset-top,0px)) 32px}
+.hoja-barra{max-width:216mm;margin:0 auto 12px;display:grid;gap:8px}
+.hoja-barra .xr-fila{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.hoja-barra label{display:grid;gap:3px;font-size:.82rem;color:var(--muted);flex:1 1 320px;min-width:0}
+.hoja-barra input{border:1px solid var(--line-2);border-radius:3px;padding:6px 8px;background:var(--surface);font:500 .86rem var(--f-mono);min-width:0;width:100%}
+.hojas{display:grid;gap:16px;justify-content:center;overflow-x:auto}
+.carta{width:215.9mm;height:279.4mm;background:#fff;color:#111;padding:14mm 16mm;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto auto;gap:6mm;box-shadow:0 1px 3px rgba(0,0,0,.25);font-family:var(--f-body)}
+.carta-cab{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:.5mm solid #111;padding-bottom:3mm;gap:6mm}
+.carta-cab .id{font:700 26mm/0.85 var(--f-disp);letter-spacing:-.01em}
+.carta-cab .pr{text-align:right;font-size:3.6mm;line-height:1.3}
+.carta-cab .pr b{font:600 5mm/1.1 var(--f-disp);display:block}
+.carta-qr{display:grid;grid-template-columns:62mm minmax(0,1fr);gap:7mm;align-items:center}
+.carta-qr svg{width:62mm;height:62mm;display:block}
+.carta-qr p{font-size:4mm;line-height:1.35}
+.carta-qr p b{font-weight:600}
+.carta-mira{display:grid;place-items:center;position:relative}
+.carta-mira svg{width:110mm;height:110mm}
+.carta-datos{display:grid;grid-template-columns:auto minmax(0,1fr);gap:1.6mm 5mm;font-size:3.7mm;line-height:1.3;border-top:.3mm solid #999;padding-top:3mm}
+.carta-datos dt{font-weight:600}
+.carta-datos dd{margin:0}
+.carta-pie{font-size:3.1mm;color:#7a1f1f;border-top:.3mm solid #999;padding-top:2mm}
+@media print{
+  @page{size:letter;margin:0}
+  html,body{background:#fff!important}
+  body>*:not(#hojaVista){display:none!important}
+  #hojaVista{position:static;padding:0;overflow:visible;background:#fff}
+  .hoja-barra{display:none!important}
+  .hojas{display:block}
+  .carta{box-shadow:none;break-after:page;page-break-after:always}
+}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+
+<div class="pagina" id="pagina">
+  <header class="cajetin">
+    <div class="cj-titulo">
+      <h1 id="tTitulo">Visor en sitio</h1>
+      <p class="cj-sub" id="tSub">Visor en sitio · realidad aumentada</p>
+    </div>
+    <dl class="cj-campos">
+      <div><dt class="eti">Modelo</dt><dd id="tModelo">—</dd></div>
+      <div><dt class="eti">Generado</dt><dd id="tGen">—</dd></div>
+      <div><dt class="eti">Referencias</dt><dd id="tRefs">QR 1 · QR 2 (propuesta)</dd></div>
+    </dl>
+    <p class="cj-leyenda" id="tLeyenda">Anteproyecto: no apto para construcción sin revisión y firma de profesional idóneo.</p>
+  </header>
+
+  <main class="app">
+    <section class="visor-col" aria-label="Vista previa 3D">
+      <div class="visor" id="visor">
+        <div class="hud"><strong>Vista previa 3D</strong><span>Arrastre para girar · pellizque para acercar</span></div>
+        <div class="visor-acc" role="group" aria-label="Vista">
+          <button type="button" id="bVista3d" aria-pressed="true">3D</button>
+          <button type="button" id="bVistaPlanta" aria-pressed="false">Planta</button>
+        </div>
+        <div class="falla3d" id="falla3d" hidden>
+          <strong>No se pudo cargar el 3D</strong>
+          <p>La vista necesita internet para descargar el motor 3D. Revise la conexión y recargue la página.</p>
+        </div>
+      </div>
+      <div class="fase-barra">
+        <div class="fase-cab"><strong id="faseNom">Terminado</strong><span id="faseFecha"></span></div>
+        <input type="range" class="fase-rango" id="faseRango" min="0" max="9" step="1" value="9" aria-label="Estado de la obra que se muestra">
+        <div class="fase-ticks" id="faseTicks"></div>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <section aria-labelledby="hRA">
+        <h2 id="hRA">Ver en la obra con la cámara</h2>
+        <div class="estado-ra"><span class="pill" id="raPill" style="--c:var(--muted)">Comprobando…</span><span id="raTxt"></span></div>
+        <div class="modos">
+          <button type="button" class="modo" id="bMaqueta" disabled>
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 22l12 6 12-6-12-6z"/><path d="M9 19.5V12l7-5 7 5v7.5"/><path d="M14 22.5v-5h4v5"/></svg>
+            <b>Maqueta sobre la mesa</b><small>El modelo a escala sobre cualquier superficie plana. No necesita las hojas QR.</small>
+          </button>
+          <button type="button" class="modo" id="bObra" disabled>
+            <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="9" height="9"/><rect x="19" y="17" width="9" height="9"/><circle cx="8.5" cy="10.5" r="1.4"/><circle cx="23.5" cy="21.5" r="1.4"/><path d="M11 13l10 6" stroke-dasharray="2 2"/></svg>
+            <b>Obra a escala real</b><small>Se ancla con las hojas QR 1 y QR 2 pegadas en los muros.</small>
+          </button>
+        </div>
+      </section>
+
+      <section aria-labelledby="hCapas">
+        <h2 id="hCapas">Qué se muestra</h2>
+        <div class="capas" id="capas"></div>
+        <div class="xr-fila" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="eti">Colores</span>
+          <div class="seg" id="segColor" role="group" aria-label="Colores"><button type="button" data-v="real" aria-pressed="true">Realista</button><button type="button" data-v="paq" aria-pressed="false">Por partida</button></div>
+        </div>
+      </section>
+
+      <section aria-labelledby="hRefs">
+        <h2 id="hRefs">Puntos de referencia</h2>
+        <p class="nota">Posición propuesta en muros que no se tocan en la etapa 1. Confírmela en la obra antes de imprimir; el centro de la mira es el punto que se marca con la tablet.</p>
+        <div class="refs" id="refs"></div>
+        <button type="button" class="btn" id="bHoja">Hoja para imprimir</button>
+      </section>
+
+      <section aria-labelledby="hPasos">
+        <h2 id="hPasos">En la obra, paso a paso</h2>
+        <ol class="pasos">
+          <li>Imprima las dos hojas en carta y péguelas <b>planas y niveladas</b> donde indica cada una.</li>
+          <li>Escanee la QR 1 con la cámara de la tablet: abre este visor en Chrome.</li>
+          <li>Toque <b>Obra a escala real</b> y permita la cámara.</li>
+          <li>Mueva la tablet despacio hasta que la mira se ponga celeste sobre la pared. Apunte al centro de la mira de la QR 1 y toque <b>Marcar</b>, sin moverse por un segundo.</li>
+          <li>Vaya a la QR 2 y repita.</li>
+          <li>Revise la diferencia: hasta 3 cm está bien. Las líneas celestes de lo existente deben caer sobre las paredes reales; si no, use <b>Ajuste fino</b>.</li>
+        </ol>
+      </section>
+    </aside>
+  </main>
+</div>
+
+<!-- interfaz sobre la cámara -->
+<div class="xr" id="xr" hidden>
+  <div class="xr-top">
+    <span class="xr-modo" id="xrModo">Obra 1:1</span>
+    <span class="xr-estado" id="xrEstado" aria-live="polite">Iniciando la cámara…</span>
+    <button type="button" class="xb" id="xrSalir">Salir</button>
+  </div>
+  <div></div>
+  <div class="xr-abajo"><div class="xr-panel" id="xrPanel"></div></div>
+  <div class="mira" id="mira" hidden></div>
+</div>
+
+<!-- hoja de referencias -->
+<div class="hoja-vista" id="hojaVista" hidden>
+  <div class="hoja-barra">
+    <div class="xr-fila">
+      <h2 style="flex:1 1 auto">Hojas de referencia (carta)</h2>
+      <button type="button" class="btn" id="bImprimir">Imprimir</button>
+      <button type="button" class="btn-sec" id="bCerrarHoja">Cerrar</button>
+    </div>
+    <div class="xr-fila">
+      <label for="urlVisor">Dirección del visor que abre el QR
+        <input id="urlVisor" type="url" inputmode="url" placeholder="https://…/casa_ana_arauz_visor_RA_v6.html">
+      </label>
+    </div>
+    <p class="nota" id="hojaNota">Imprima al 100 % (sin «ajustar a la página»). Solo importa la posición del centro de la mira.</p>
+  </div>
+  <div class="hojas" id="hojas"></div>
+</div>
+
+<script>/* QR Code generator — Copyright (c) 2009 Kazuhiko Arase, MIT license (vendored from qrcode-terminal 0.12). "QR Code" is a registered trademark of DENSO WAVE INCORPORATED. */
+(function(){var F={},C={};function req(n){n=n.replace("./","");if(!(n in C)){var m={exports:{}};F[n](m,m.exports);C[n]=m.exports;}return C[n];}
+F["QRMode"]=function(module,exports){module.exports = {
+    MODE_NUMBER :       1 << 0,
+    MODE_ALPHA_NUM :    1 << 1,
+    MODE_8BIT_BYTE :    1 << 2,
+    MODE_KANJI :        1 << 3
+};
+
+};
+F["QRErrorCorrectLevel"]=function(module,exports){module.exports = {
+	L : 1,
+	M : 0,
+	Q : 3,
+	H : 2
+};
+
+};
+F["QRMaskPattern"]=function(module,exports){module.exports = {
+	PATTERN000 : 0,
+	PATTERN001 : 1,
+	PATTERN010 : 2,
+	PATTERN011 : 3,
+	PATTERN100 : 4,
+	PATTERN101 : 5,
+	PATTERN110 : 6,
+	PATTERN111 : 7
+};
+
+};
+F["QRMath"]=function(module,exports){var QRMath = {
+	glog : function(n) {
+		if (n < 1) {
+			throw new Error("glog(" + n + ")");
+		}
+		return QRMath.LOG_TABLE[n];
+	},
+	gexp : function(n) {
+		while (n < 0) {
+			n += 255;
+		}
+		while (n >= 256) {
+			n -= 255;
+		}
+		return QRMath.EXP_TABLE[n];
+	},
+	EXP_TABLE : new Array(256),
+	LOG_TABLE : new Array(256)
+};
+for (var i = 0; i < 8; i++) {
+	QRMath.EXP_TABLE[i] = 1 << i;
+}
+for (var i = 8; i < 256; i++) {
+	QRMath.EXP_TABLE[i] = QRMath.EXP_TABLE[i - 4]
+		^ QRMath.EXP_TABLE[i - 5]
+		^ QRMath.EXP_TABLE[i - 6]
+		^ QRMath.EXP_TABLE[i - 8];
+}
+for (var i = 0; i < 255; i++) {
+	QRMath.LOG_TABLE[QRMath.EXP_TABLE[i] ] = i;
+}
+module.exports = QRMath;
+
+};
+F["QRPolynomial"]=function(module,exports){var QRMath = req('./QRMath');
+function QRPolynomial(num, shift) {
+	if (num.length === undefined) {
+		throw new Error(num.length + "/" + shift);
+	}
+	var offset = 0;
+	while (offset < num.length && num[offset] === 0) {
+		offset++;
+	}
+	this.num = new Array(num.length - offset + shift);
+	for (var i = 0; i < num.length - offset; i++) {
+		this.num[i] = num[i + offset];
+	}
+}
+QRPolynomial.prototype = {
+	get : function(index) {
+		return this.num[index];
+	},
+	getLength : function() {
+		return this.num.length;
+	},
+	multiply : function(e) {
+		var num = new Array(this.getLength() + e.getLength() - 1);
+		for (var i = 0; i < this.getLength(); i++) {
+			for (var j = 0; j < e.getLength(); j++) {
+				num[i + j] ^= QRMath.gexp(QRMath.glog(this.get(i) ) + QRMath.glog(e.get(j) ) );
+			}
+		}
+		return new QRPolynomial(num, 0);
+	},
+	mod : function(e) {
+		if (this.getLength() - e.getLength() < 0) {
+			return this;
+		}
+		var ratio = QRMath.glog(this.get(0) ) - QRMath.glog(e.get(0) );
+		var num = new Array(this.getLength() );
+		for (var i = 0; i < this.getLength(); i++) {
+			num[i] = this.get(i);
+		}
+		for (var x = 0; x < e.getLength(); x++) {
+			num[x] ^= QRMath.gexp(QRMath.glog(e.get(x) ) + ratio);
+		}
+		return new QRPolynomial(num, 0).mod(e);
+	}
+};
+module.exports = QRPolynomial;
+
+};
+F["QR8bitByte"]=function(module,exports){var QRMode = req('./QRMode');
+function QR8bitByte(data) {
+	this.mode = QRMode.MODE_8BIT_BYTE;
+	this.data = data;
+}
+QR8bitByte.prototype = {
+	getLength : function() {
+		return this.data.length;
+	},
+	write : function(buffer) {
+		for (var i = 0; i < this.data.length; i++) {
+			buffer.put(this.data.charCodeAt(i), 8);
+		}
+	}
+};
+module.exports = QR8bitByte;
+
+};
+F["QRBitBuffer"]=function(module,exports){function QRBitBuffer() {
+	this.buffer = [];
+	this.length = 0;
+}
+QRBitBuffer.prototype = {
+	get : function(index) {
+		var bufIndex = Math.floor(index / 8);
+		return ( (this.buffer[bufIndex] >>> (7 - index % 8) ) & 1) == 1;
+	},
+	put : function(num, length) {
+		for (var i = 0; i < length; i++) {
+			this.putBit( ( (num >>> (length - i - 1) ) & 1) == 1);
+		}
+	},
+	getLengthInBits : function() {
+		return this.length;
+	},
+	putBit : function(bit) {
+		var bufIndex = Math.floor(this.length / 8);
+		if (this.buffer.length <= bufIndex) {
+			this.buffer.push(0);
+		}
+		if (bit) {
+			this.buffer[bufIndex] |= (0x80 >>> (this.length % 8) );
+		}
+		this.length++;
+	}
+};
+module.exports = QRBitBuffer;
+
+};
+F["QRRSBlock"]=function(module,exports){var QRErrorCorrectLevel = req('./QRErrorCorrectLevel');
+function QRRSBlock(totalCount, dataCount) {
+	this.totalCount = totalCount;
+	this.dataCount  = dataCount;
+}
+QRRSBlock.RS_BLOCK_TABLE = [
+	[1, 26, 19],
+	[1, 26, 16],
+	[1, 26, 13],
+	[1, 26, 9],
+	[1, 44, 34],
+	[1, 44, 28],
+	[1, 44, 22],
+	[1, 44, 16],
+	[1, 70, 55],
+	[1, 70, 44],
+	[2, 35, 17],
+	[2, 35, 13],
+	[1, 100, 80],
+	[2, 50, 32],
+	[2, 50, 24],
+	[4, 25, 9],
+	[1, 134, 108],
+	[2, 67, 43],
+	[2, 33, 15, 2, 34, 16],
+	[2, 33, 11, 2, 34, 12],
+	[2, 86, 68],
+	[4, 43, 27],
+	[4, 43, 19],
+	[4, 43, 15],
+	[2, 98, 78],
+	[4, 49, 31],
+	[2, 32, 14, 4, 33, 15],
+	[4, 39, 13, 1, 40, 14],
+	[2, 121, 97],
+	[2, 60, 38, 2, 61, 39],
+	[4, 40, 18, 2, 41, 19],
+	[4, 40, 14, 2, 41, 15],
+	[2, 146, 116],
+	[3, 58, 36, 2, 59, 37],
+	[4, 36, 16, 4, 37, 17],
+	[4, 36, 12, 4, 37, 13],
+	[2, 86, 68, 2, 87, 69],
+	[4, 69, 43, 1, 70, 44],
+	[6, 43, 19, 2, 44, 20],
+	[6, 43, 15, 2, 44, 16],
+	[4, 101, 81],
+	[1, 80, 50, 4, 81, 51],
+	[4, 50, 22, 4, 51, 23],
+	[3, 36, 12, 8, 37, 13],
+	[2, 116, 92, 2, 117, 93],
+	[6, 58, 36, 2, 59, 37],
+	[4, 46, 20, 6, 47, 21],
+	[7, 42, 14, 4, 43, 15],
+	[4, 133, 107],
+	[8, 59, 37, 1, 60, 38],
+	[8, 44, 20, 4, 45, 21],
+	[12, 33, 11, 4, 34, 12],
+	[3, 145, 115, 1, 146, 116],
+	[4, 64, 40, 5, 65, 41],
+	[11, 36, 16, 5, 37, 17],
+	[11, 36, 12, 5, 37, 13],
+	[5, 109, 87, 1, 110, 88],
+	[5, 65, 41, 5, 66, 42],
+	[5, 54, 24, 7, 55, 25],
+	[11, 36, 12],
+	[5, 122, 98, 1, 123, 99],
+	[7, 73, 45, 3, 74, 46],
+	[15, 43, 19, 2, 44, 20],
+	[3, 45, 15, 13, 46, 16],
+	[1, 135, 107, 5, 136, 108],
+	[10, 74, 46, 1, 75, 47],
+	[1, 50, 22, 15, 51, 23],
+	[2, 42, 14, 17, 43, 15],
+	[5, 150, 120, 1, 151, 121],
+	[9, 69, 43, 4, 70, 44],
+	[17, 50, 22, 1, 51, 23],
+	[2, 42, 14, 19, 43, 15],
+	[3, 141, 113, 4, 142, 114],
+	[3, 70, 44, 11, 71, 45],
+	[17, 47, 21, 4, 48, 22],
+	[9, 39, 13, 16, 40, 14],
+	[3, 135, 107, 5, 136, 108],
+	[3, 67, 41, 13, 68, 42],
+	[15, 54, 24, 5, 55, 25],
+	[15, 43, 15, 10, 44, 16],
+	[4, 144, 116, 4, 145, 117],
+	[17, 68, 42],
+	[17, 50, 22, 6, 51, 23],
+	[19, 46, 16, 6, 47, 17],
+	[2, 139, 111, 7, 140, 112],
+	[17, 74, 46],
+	[7, 54, 24, 16, 55, 25],
+	[34, 37, 13],
+	[4, 151, 121, 5, 152, 122],
+	[4, 75, 47, 14, 76, 48],
+	[11, 54, 24, 14, 55, 25],
+	[16, 45, 15, 14, 46, 16],
+	[6, 147, 117, 4, 148, 118],
+	[6, 73, 45, 14, 74, 46],
+	[11, 54, 24, 16, 55, 25],
+	[30, 46, 16, 2, 47, 17],
+	[8, 132, 106, 4, 133, 107],
+	[8, 75, 47, 13, 76, 48],
+	[7, 54, 24, 22, 55, 25],
+	[22, 45, 15, 13, 46, 16],
+	[10, 142, 114, 2, 143, 115],
+	[19, 74, 46, 4, 75, 47],
+	[28, 50, 22, 6, 51, 23],
+	[33, 46, 16, 4, 47, 17],
+	[8, 152, 122, 4, 153, 123],
+	[22, 73, 45, 3, 74, 46],
+	[8, 53, 23, 26, 54, 24],
+	[12, 45, 15, 28, 46, 16],
+	[3, 147, 117, 10, 148, 118],
+	[3, 73, 45, 23, 74, 46],
+	[4, 54, 24, 31, 55, 25],
+	[11, 45, 15, 31, 46, 16],
+	[7, 146, 116, 7, 147, 117],
+	[21, 73, 45, 7, 74, 46],
+	[1, 53, 23, 37, 54, 24],
+	[19, 45, 15, 26, 46, 16],
+	[5, 145, 115, 10, 146, 116],
+	[19, 75, 47, 10, 76, 48],
+	[15, 54, 24, 25, 55, 25],
+	[23, 45, 15, 25, 46, 16],
+	[13, 145, 115, 3, 146, 116],
+	[2, 74, 46, 29, 75, 47],
+	[42, 54, 24, 1, 55, 25],
+	[23, 45, 15, 28, 46, 16],
+	[17, 145, 115],
+	[10, 74, 46, 23, 75, 47],
+	[10, 54, 24, 35, 55, 25],
+	[19, 45, 15, 35, 46, 16],
+	[17, 145, 115, 1, 146, 116],
+	[14, 74, 46, 21, 75, 47],
+	[29, 54, 24, 19, 55, 25],
+	[11, 45, 15, 46, 46, 16],
+	[13, 145, 115, 6, 146, 116],
+	[14, 74, 46, 23, 75, 47],
+	[44, 54, 24, 7, 55, 25],
+	[59, 46, 16, 1, 47, 17],
+	[12, 151, 121, 7, 152, 122],
+	[12, 75, 47, 26, 76, 48],
+	[39, 54, 24, 14, 55, 25],
+	[22, 45, 15, 41, 46, 16],
+	[6, 151, 121, 14, 152, 122],
+	[6, 75, 47, 34, 76, 48],
+	[46, 54, 24, 10, 55, 25],
+	[2, 45, 15, 64, 46, 16],
+	[17, 152, 122, 4, 153, 123],
+	[29, 74, 46, 14, 75, 47],
+	[49, 54, 24, 10, 55, 25],
+	[24, 45, 15, 46, 46, 16],
+	[4, 152, 122, 18, 153, 123],
+	[13, 74, 46, 32, 75, 47],
+	[48, 54, 24, 14, 55, 25],
+	[42, 45, 15, 32, 46, 16],
+	[20, 147, 117, 4, 148, 118],
+	[40, 75, 47, 7, 76, 48],
+	[43, 54, 24, 22, 55, 25],
+	[10, 45, 15, 67, 46, 16],
+	[19, 148, 118, 6, 149, 119],
+	[18, 75, 47, 31, 76, 48],
+	[34, 54, 24, 34, 55, 25],
+	[20, 45, 15, 61, 46, 16]
+];
+QRRSBlock.getRSBlocks = function(typeNumber, errorCorrectLevel) {
+	var rsBlock = QRRSBlock.getRsBlockTable(typeNumber, errorCorrectLevel);
+	if (rsBlock === undefined) {
+		throw new Error("bad rs block @ typeNumber:" + typeNumber + "/errorCorrectLevel:" + errorCorrectLevel);
+	}
+	var length = rsBlock.length / 3;
+	var list = [];
+	for (var i = 0; i < length; i++) {
+		var count = rsBlock[i * 3 + 0];
+		var totalCount = rsBlock[i * 3 + 1];
+		var dataCount  = rsBlock[i * 3 + 2];
+		for (var j = 0; j < count; j++) {
+			list.push(new QRRSBlock(totalCount, dataCount) );	
+		}
+	}
+	return list;
+};
+QRRSBlock.getRsBlockTable = function(typeNumber, errorCorrectLevel) {
+	switch(errorCorrectLevel) {
+	case QRErrorCorrectLevel.L :
+		return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+	case QRErrorCorrectLevel.M :
+		return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+	case QRErrorCorrectLevel.Q :
+		return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+	case QRErrorCorrectLevel.H :
+		return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+	default :
+		return undefined;
+	}
+};
+module.exports = QRRSBlock;
+
+};
+F["QRUtil"]=function(module,exports){var QRMode = req('./QRMode');
+var QRPolynomial = req('./QRPolynomial');
+var QRMath = req('./QRMath');
+var QRMaskPattern = req('./QRMaskPattern');
+var QRUtil = {
+    PATTERN_POSITION_TABLE : [
+        [],
+        [6, 18],
+        [6, 22],
+        [6, 26],
+        [6, 30],
+        [6, 34],
+        [6, 22, 38],
+        [6, 24, 42],
+        [6, 26, 46],
+        [6, 28, 50],
+        [6, 30, 54],        
+        [6, 32, 58],
+        [6, 34, 62],
+        [6, 26, 46, 66],
+        [6, 26, 48, 70],
+        [6, 26, 50, 74],
+        [6, 30, 54, 78],
+        [6, 30, 56, 82],
+        [6, 30, 58, 86],
+        [6, 34, 62, 90],
+        [6, 28, 50, 72, 94],
+        [6, 26, 50, 74, 98],
+        [6, 30, 54, 78, 102],
+        [6, 28, 54, 80, 106],
+        [6, 32, 58, 84, 110],
+        [6, 30, 58, 86, 114],
+        [6, 34, 62, 90, 118],
+        [6, 26, 50, 74, 98, 122],
+        [6, 30, 54, 78, 102, 126],
+        [6, 26, 52, 78, 104, 130],
+        [6, 30, 56, 82, 108, 134],
+        [6, 34, 60, 86, 112, 138],
+        [6, 30, 58, 86, 114, 142],
+        [6, 34, 62, 90, 118, 146],
+        [6, 30, 54, 78, 102, 126, 150],
+        [6, 24, 50, 76, 102, 128, 154],
+        [6, 28, 54, 80, 106, 132, 158],
+        [6, 32, 58, 84, 110, 136, 162],
+        [6, 26, 54, 82, 110, 138, 166],
+        [6, 30, 58, 86, 114, 142, 170]
+    ],
+    G15 : (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0),
+    G18 : (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8) | (1 << 5) | (1 << 2) | (1 << 0),
+    G15_MASK : (1 << 14) | (1 << 12) | (1 << 10)    | (1 << 4) | (1 << 1),
+    getBCHTypeInfo : function(data) {
+        var d = data << 10;
+        while (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(QRUtil.G15) >= 0) {
+            d ^= (QRUtil.G15 << (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(QRUtil.G15) ) );    
+        }
+        return ( (data << 10) | d) ^ QRUtil.G15_MASK;
+    },
+    getBCHTypeNumber : function(data) {
+        var d = data << 12;
+        while (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(QRUtil.G18) >= 0) {
+            d ^= (QRUtil.G18 << (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(QRUtil.G18) ) );    
+        }
+        return (data << 12) | d;
+    },
+    getBCHDigit : function(data) {
+        var digit = 0;
+        while (data !== 0) {
+            digit++;
+            data >>>= 1;
+        }
+        return digit;
+    },
+    getPatternPosition : function(typeNumber) {
+        return QRUtil.PATTERN_POSITION_TABLE[typeNumber - 1];
+    },
+    getMask : function(maskPattern, i, j) {
+        switch (maskPattern) {
+        case QRMaskPattern.PATTERN000 : return (i + j) % 2 === 0;
+        case QRMaskPattern.PATTERN001 : return i % 2 === 0;
+        case QRMaskPattern.PATTERN010 : return j % 3 === 0;
+        case QRMaskPattern.PATTERN011 : return (i + j) % 3 === 0;
+        case QRMaskPattern.PATTERN100 : return (Math.floor(i / 2) + Math.floor(j / 3) ) % 2 === 0;
+        case QRMaskPattern.PATTERN101 : return (i * j) % 2 + (i * j) % 3 === 0;
+        case QRMaskPattern.PATTERN110 : return ( (i * j) % 2 + (i * j) % 3) % 2 === 0;
+        case QRMaskPattern.PATTERN111 : return ( (i * j) % 3 + (i + j) % 2) % 2 === 0;
+        default :
+            throw new Error("bad maskPattern:" + maskPattern);
+        }
+    },
+    getErrorCorrectPolynomial : function(errorCorrectLength) {
+        var a = new QRPolynomial([1], 0);
+        for (var i = 0; i < errorCorrectLength; i++) {
+            a = a.multiply(new QRPolynomial([1, QRMath.gexp(i)], 0) );
+        }
+        return a;
+    },
+    getLengthInBits : function(mode, type) {
+        if (1 <= type && type < 10) {
+            switch(mode) {
+            case QRMode.MODE_NUMBER     : return 10;
+            case QRMode.MODE_ALPHA_NUM  : return 9;
+            case QRMode.MODE_8BIT_BYTE  : return 8;
+            case QRMode.MODE_KANJI      : return 8;
+            default :
+                throw new Error("mode:" + mode);
+            }
+        } else if (type < 27) {
+            switch(mode) {
+            case QRMode.MODE_NUMBER     : return 12;
+            case QRMode.MODE_ALPHA_NUM  : return 11;
+            case QRMode.MODE_8BIT_BYTE  : return 16;
+            case QRMode.MODE_KANJI      : return 10;
+            default :
+                throw new Error("mode:" + mode);
+            }
+        } else if (type < 41) {
+            switch(mode) {
+            case QRMode.MODE_NUMBER     : return 14;
+            case QRMode.MODE_ALPHA_NUM  : return 13;
+            case QRMode.MODE_8BIT_BYTE  : return 16;
+            case QRMode.MODE_KANJI      : return 12;
+            default :
+                throw new Error("mode:" + mode);
+            }
+        } else {
+            throw new Error("type:" + type);
+        }
+    },
+    getLostPoint : function(qrCode) {
+        var moduleCount = qrCode.getModuleCount();
+        var lostPoint = 0;
+        var row = 0; 
+        var col = 0;
+        for (row = 0; row < moduleCount; row++) {
+            for (col = 0; col < moduleCount; col++) {
+                var sameCount = 0;
+                var dark = qrCode.isDark(row, col);
+                for (var r = -1; r <= 1; r++) {
+                    if (row + r < 0 || moduleCount <= row + r) {
+                        continue;
+                    }
+                    for (var c = -1; c <= 1; c++) {
+                        if (col + c < 0 || moduleCount <= col + c) {
+                            continue;
+                        }
+                        if (r === 0 && c === 0) {
+                            continue;
+                        }
+                        if (dark === qrCode.isDark(row + r, col + c) ) {
+                            sameCount++;
+                        }
+                    }
+                }
+                if (sameCount > 5) {
+                    lostPoint += (3 + sameCount - 5);
+                }
+            }
+        }
+        for (row = 0; row < moduleCount - 1; row++) {
+            for (col = 0; col < moduleCount - 1; col++) {
+                var count = 0;
+                if (qrCode.isDark(row,     col    ) ) count++;
+                if (qrCode.isDark(row + 1, col    ) ) count++;
+                if (qrCode.isDark(row,     col + 1) ) count++;
+                if (qrCode.isDark(row + 1, col + 1) ) count++;
+                if (count === 0 || count === 4) {
+                    lostPoint += 3;
+                }
+            }
+        }
+        for (row = 0; row < moduleCount; row++) {
+            for (col = 0; col < moduleCount - 6; col++) {
+                if (qrCode.isDark(row, col) && 
+                        !qrCode.isDark(row, col + 1) && 
+                         qrCode.isDark(row, col + 2) && 
+                         qrCode.isDark(row, col + 3) && 
+                         qrCode.isDark(row, col + 4) && 
+                        !qrCode.isDark(row, col + 5) && 
+                         qrCode.isDark(row, col + 6) ) {
+                    lostPoint += 40;
+                }
+            }
+        }
+        for (col = 0; col < moduleCount; col++) {
+            for (row = 0; row < moduleCount - 6; row++) {
+                if (qrCode.isDark(row, col) &&
+                        !qrCode.isDark(row + 1, col) &&
+                         qrCode.isDark(row + 2, col) &&
+                         qrCode.isDark(row + 3, col) &&
+                         qrCode.isDark(row + 4, col) &&
+                        !qrCode.isDark(row + 5, col) &&
+                         qrCode.isDark(row + 6, col) ) {
+                    lostPoint += 40;
+                }
+            }
+        }
+        var darkCount = 0;
+        for (col = 0; col < moduleCount; col++) {
+            for (row = 0; row < moduleCount; row++) {
+                if (qrCode.isDark(row, col) ) {
+                    darkCount++;
+                }
+            }
+        }
+        var ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5;
+        lostPoint += ratio * 10;
+        return lostPoint;       
+    }
+};
+module.exports = QRUtil;
+
+};
+F["index"]=function(module,exports){
+var QR8bitByte = req('./QR8bitByte');
+var QRUtil = req('./QRUtil');
+var QRPolynomial = req('./QRPolynomial');
+var QRRSBlock = req('./QRRSBlock');
+var QRBitBuffer = req('./QRBitBuffer');
+function QRCode(typeNumber, errorCorrectLevel) {
+	this.typeNumber = typeNumber;
+	this.errorCorrectLevel = errorCorrectLevel;
+	this.modules = null;
+	this.moduleCount = 0;
+	this.dataCache = null;
+	this.dataList = [];
+}
+QRCode.prototype = {
+	addData : function(data) {
+		var newData = new QR8bitByte(data);
+		this.dataList.push(newData);
+		this.dataCache = null;
+	},
+	isDark : function(row, col) {
+		if (row < 0 || this.moduleCount <= row || col < 0 || this.moduleCount <= col) {
+			throw new Error(row + "," + col);
+		}
+		return this.modules[row][col];
+	},
+	getModuleCount : function() {
+		return this.moduleCount;
+	},
+	make : function() {
+		if (this.typeNumber < 1 ){
+			var typeNumber = 1;
+			for (typeNumber = 1; typeNumber < 40; typeNumber++) {
+				var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, this.errorCorrectLevel);
+				var buffer = new QRBitBuffer();
+				var totalDataCount = 0;
+				for (var i = 0; i < rsBlocks.length; i++) {
+					totalDataCount += rsBlocks[i].dataCount;
+				}
+				for (var x = 0; x < this.dataList.length; x++) {
+					var data = this.dataList[x];
+					buffer.put(data.mode, 4);
+					buffer.put(data.getLength(), QRUtil.getLengthInBits(data.mode, typeNumber) );
+					data.write(buffer);
+				}
+				if (buffer.getLengthInBits() <= totalDataCount * 8)
+					break;
+			}
+			this.typeNumber = typeNumber;
+		}
+		this.makeImpl(false, this.getBestMaskPattern() );
+	},
+	makeImpl : function(test, maskPattern) {
+		this.moduleCount = this.typeNumber * 4 + 17;
+		this.modules = new Array(this.moduleCount);
+		for (var row = 0; row < this.moduleCount; row++) {
+			this.modules[row] = new Array(this.moduleCount);
+			for (var col = 0; col < this.moduleCount; col++) {
+				this.modules[row][col] = null;
+			}
+		}
+		this.setupPositionProbePattern(0, 0);
+		this.setupPositionProbePattern(this.moduleCount - 7, 0);
+		this.setupPositionProbePattern(0, this.moduleCount - 7);
+		this.setupPositionAdjustPattern();
+		this.setupTimingPattern();
+		this.setupTypeInfo(test, maskPattern);
+		if (this.typeNumber >= 7) {
+			this.setupTypeNumber(test);
+		}
+		if (this.dataCache === null) {
+			this.dataCache = QRCode.createData(this.typeNumber, this.errorCorrectLevel, this.dataList);
+		}
+		this.mapData(this.dataCache, maskPattern);
+	},
+	setupPositionProbePattern : function(row, col)  {
+		for (var r = -1; r <= 7; r++) {
+			if (row + r <= -1 || this.moduleCount <= row + r) continue;
+			for (var c = -1; c <= 7; c++) {
+				if (col + c <= -1 || this.moduleCount <= col + c) continue;
+				if ( (0 <= r && r <= 6 && (c === 0 || c === 6) ) || 
+                     (0 <= c && c <= 6 && (r === 0 || r === 6) ) || 
+                     (2 <= r && r <= 4 && 2 <= c && c <= 4) ) {
+					this.modules[row + r][col + c] = true;
+				} else {
+					this.modules[row + r][col + c] = false;
+				}
+			}		
+		}		
+	},
+	getBestMaskPattern : function() {
+		var minLostPoint = 0;
+		var pattern = 0;
+		for (var i = 0; i < 8; i++) {
+			this.makeImpl(true, i);
+			var lostPoint = QRUtil.getLostPoint(this);
+			if (i === 0 || minLostPoint >  lostPoint) {
+				minLostPoint = lostPoint;
+				pattern = i;
+			}
+		}
+		return pattern;
+	},
+	createMovieClip : function(target_mc, instance_name, depth) {
+		var qr_mc = target_mc.createEmptyMovieClip(instance_name, depth);
+		var cs = 1;
+		this.make();
+		for (var row = 0; row < this.modules.length; row++) {
+			var y = row * cs;
+			for (var col = 0; col < this.modules[row].length; col++) {
+				var x = col * cs;
+				var dark = this.modules[row][col];
+				if (dark) {
+					qr_mc.beginFill(0, 100);
+					qr_mc.moveTo(x, y);
+					qr_mc.lineTo(x + cs, y);
+					qr_mc.lineTo(x + cs, y + cs);
+					qr_mc.lineTo(x, y + cs);
+					qr_mc.endFill();
+				}
+			}
+		}
+		return qr_mc;
+	},
+	setupTimingPattern : function() {
+		for (var r = 8; r < this.moduleCount - 8; r++) {
+			if (this.modules[r][6] !== null) {
+				continue;
+			}
+			this.modules[r][6] = (r % 2 === 0);
+		}
+		for (var c = 8; c < this.moduleCount - 8; c++) {
+			if (this.modules[6][c] !== null) {
+				continue;
+			}
+			this.modules[6][c] = (c % 2 === 0);
+		}
+	},
+	setupPositionAdjustPattern : function() {
+		var pos = QRUtil.getPatternPosition(this.typeNumber);
+		for (var i = 0; i < pos.length; i++) {
+			for (var j = 0; j < pos.length; j++) {
+				var row = pos[i];
+				var col = pos[j];
+				if (this.modules[row][col] !== null) {
+					continue;
+				}
+				for (var r = -2; r <= 2; r++) {
+					for (var c = -2; c <= 2; c++) {
+						if (Math.abs(r) === 2 || 
+                            Math.abs(c) === 2 ||
+                            (r === 0 && c === 0) ) {
+							this.modules[row + r][col + c] = true;
+						} else {
+							this.modules[row + r][col + c] = false;
+						}
+					}
+				}
+			}
+		}
+	},
+	setupTypeNumber : function(test) {
+		var bits = QRUtil.getBCHTypeNumber(this.typeNumber);
+        var mod;
+		for (var i = 0; i < 18; i++) {
+			mod = (!test && ( (bits >> i) & 1) === 1);
+			this.modules[Math.floor(i / 3)][i % 3 + this.moduleCount - 8 - 3] = mod;
+		}
+		for (var x = 0; x < 18; x++) {
+			mod = (!test && ( (bits >> x) & 1) === 1);
+			this.modules[x % 3 + this.moduleCount - 8 - 3][Math.floor(x / 3)] = mod;
+		}
+	},
+	setupTypeInfo : function(test, maskPattern) {
+		var data = (this.errorCorrectLevel << 3) | maskPattern;
+		var bits = QRUtil.getBCHTypeInfo(data);
+        var mod;
+		for (var v = 0; v < 15; v++) {
+			mod = (!test && ( (bits >> v) & 1) === 1);
+			if (v < 6) {
+				this.modules[v][8] = mod;
+			} else if (v < 8) {
+				this.modules[v + 1][8] = mod;
+			} else {
+				this.modules[this.moduleCount - 15 + v][8] = mod;
+			}
+		}
+		for (var h = 0; h < 15; h++) {
+			mod = (!test && ( (bits >> h) & 1) === 1);
+			if (h < 8) {
+				this.modules[8][this.moduleCount - h - 1] = mod;
+			} else if (h < 9) {
+				this.modules[8][15 - h - 1 + 1] = mod;
+			} else {
+				this.modules[8][15 - h - 1] = mod;
+			}
+		}
+		this.modules[this.moduleCount - 8][8] = (!test);
+	},
+	mapData : function(data, maskPattern) {
+		var inc = -1;
+		var row = this.moduleCount - 1;
+		var bitIndex = 7;
+		var byteIndex = 0;
+		for (var col = this.moduleCount - 1; col > 0; col -= 2) {
+			if (col === 6) col--;
+			while (true) {
+				for (var c = 0; c < 2; c++) {
+					if (this.modules[row][col - c] === null) {
+						var dark = false;
+						if (byteIndex < data.length) {
+							dark = ( ( (data[byteIndex] >>> bitIndex) & 1) === 1);
+						}
+						var mask = QRUtil.getMask(maskPattern, row, col - c);
+						if (mask) {
+							dark = !dark;
+						}
+						this.modules[row][col - c] = dark;
+						bitIndex--;
+						if (bitIndex === -1) {
+							byteIndex++;
+							bitIndex = 7;
+						}
+					}
+				}
+				row += inc;
+				if (row < 0 || this.moduleCount <= row) {
+					row -= inc;
+					inc = -inc;
+					break;
+				}
+			}
+		}
+	}
+};
+QRCode.PAD0 = 0xEC;
+QRCode.PAD1 = 0x11;
+QRCode.createData = function(typeNumber, errorCorrectLevel, dataList) {
+	var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectLevel);
+	var buffer = new QRBitBuffer();
+	for (var i = 0; i < dataList.length; i++) {
+		var data = dataList[i];
+		buffer.put(data.mode, 4);
+		buffer.put(data.getLength(), QRUtil.getLengthInBits(data.mode, typeNumber) );
+		data.write(buffer);
+	}
+	var totalDataCount = 0;
+	for (var x = 0; x < rsBlocks.length; x++) {
+		totalDataCount += rsBlocks[x].dataCount;
+	}
+	if (buffer.getLengthInBits() > totalDataCount * 8) {
+		throw new Error("code length overflow. (" + 
+            buffer.getLengthInBits() + 
+            ">" +  
+            totalDataCount * 8 + 
+            ")");
+	}
+	if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) {
+		buffer.put(0, 4);
+	}
+	while (buffer.getLengthInBits() % 8 !== 0) {
+		buffer.putBit(false);
+	}
+	while (true) {
+		if (buffer.getLengthInBits() >= totalDataCount * 8) {
+			break;
+		}
+		buffer.put(QRCode.PAD0, 8);
+		if (buffer.getLengthInBits() >= totalDataCount * 8) {
+			break;
+		}
+		buffer.put(QRCode.PAD1, 8);
+	}
+	return QRCode.createBytes(buffer, rsBlocks);
+};
+QRCode.createBytes = function(buffer, rsBlocks) {
+	var offset = 0;
+	var maxDcCount = 0;
+	var maxEcCount = 0;
+	var dcdata = new Array(rsBlocks.length);
+	var ecdata = new Array(rsBlocks.length);
+	for (var r = 0; r < rsBlocks.length; r++) {
+		var dcCount = rsBlocks[r].dataCount;
+		var ecCount = rsBlocks[r].totalCount - dcCount;
+		maxDcCount = Math.max(maxDcCount, dcCount);
+		maxEcCount = Math.max(maxEcCount, ecCount);
+		dcdata[r] = new Array(dcCount);
+		for (var i = 0; i < dcdata[r].length; i++) {
+			dcdata[r][i] = 0xff & buffer.buffer[i + offset];
+		}
+		offset += dcCount;
+		var rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
+		var rawPoly = new QRPolynomial(dcdata[r], rsPoly.getLength() - 1);
+		var modPoly = rawPoly.mod(rsPoly);
+		ecdata[r] = new Array(rsPoly.getLength() - 1);
+		for (var x = 0; x < ecdata[r].length; x++) {
+            var modIndex = x + modPoly.getLength() - ecdata[r].length;
+			ecdata[r][x] = (modIndex >= 0)? modPoly.get(modIndex) : 0;
+		}
+	}
+	var totalCodeCount = 0;
+	for (var y = 0; y < rsBlocks.length; y++) {
+		totalCodeCount += rsBlocks[y].totalCount;
+	}
+	var data = new Array(totalCodeCount);
+	var index = 0;
+	for (var z = 0; z < maxDcCount; z++) {
+		for (var s = 0; s < rsBlocks.length; s++) {
+			if (z < dcdata[s].length) {
+				data[index++] = dcdata[s][z];
+			}
+		}
+	}
+	for (var xx = 0; xx < maxEcCount; xx++) {
+		for (var t = 0; t < rsBlocks.length; t++) {
+			if (xx < ecdata[t].length) {
+				data[index++] = ecdata[t][xx];
+			}
+		}
+	}
+	return data;
+};
+module.exports = QRCode;
+
+};
+window.QRVendor={QRCode:req("index"),Nivel:req("QRErrorCorrectLevel")};})();
+</script>
+<script id="datosRA" type="application/json">{"proyecto":"Remodelación etapa 1","subtitulo":"Anteproyecto v6","version":6,"leyenda":"Anteproyecto: no apto para construcción sin revisión y firma de profesional idóneo.","fuente":"Visor 5D v6 · modelo.py v6","generado":"2026-10-16","opcion_base":"A","z_sala":-1.9,"fases":[{"id":"F0","corto":"Retiro eléctrico","ini":"2026-10-19","fin":"2026-10-19","solo_B":false},{"id":"F1","corto":"Demolición","ini":"2026-10-20","fin":"2026-10-22","solo_B":false},{"id":"F2","corto":"Bloqueo hasta la viga","ini":"2026-10-23","fin":"2026-10-26","solo_B":false},{"id":"F3","corto":"Vigas y tubos de acero","ini":"2026-10-27","fin":"2026-10-29","solo_B":false},{"id":"F4","corto":"Retaqueo y rellenos","ini":"2026-10-30","fin":"2026-11-02","solo_B":false},{"id":"F5","corto":"Celosía y puertas","ini":"2026-11-04","fin":"2026-11-06","solo_B":false},{"id":"F6","corto":"Eléctrico definitivo","ini":"2026-11-04","fin":"2026-11-06","solo_B":false},{"id":"FR","corto":"Repello recámara (B) (B)","ini":"2026-11-09","fin":"2026-11-12","solo_B":true},{"id":"F7","corto":"Limpieza y entrega","ini":"2026-11-09","fin":"2026-11-09","solo_B":false}],"paquetes":[{"id":"DEM","corto":"Demolición","color":"#d64541"},{"id":"MAM","corto":"Bloque nuevo","color":"#f0a35e"},{"id":"EST","corto":"Estructura","color":"#d9580d"},{"id":"VAN","corto":"Vanos y fachada","color":"#8a5a32"},{"id":"ELE","corto":"Eléctrico","color":"#3866d6"},{"id":"ACA","corto":"Repello","color":"#c4a46a"},{"id":"GEN","corto":"Generales","color":"#8b929b"}],"elementos":[{"id":"D-E0","nombre":"Instalación eléctrica del muro largo (panel, interruptores, tubos)","paquete":"DEM","dem":true,"solo_B":false,"fases":["F0"],"geo":[{"b":[4.85,4.875,4.25,4.6,1.25,1.7],"k":"panel_ex","f":"F0"},{"b":[4.85,4.865,2.6,2.68,1.15,1.27],"k":"aparato","f":"F0"},{"b":[4.85,4.865,6.4,6.48,1.15,1.27],"k":"aparato","f":"F0"},{"cyl":[4.86,4.42,1.7,4.86,4.42,2.6266],"r":0.012,"k":"tubo_elec","f":"F0"}]},{"id":"D-ML","nombre":"Muro largo (bloque 4\" + viga) — demoler","paquete":"DEM","dem":true,"solo_B":false,"fases":["F1"],"geo":[{"b":[4.75,4.85,0.1,1.5,0.0,2.2],"k":"bloque","f":"F1"},{"b":[4.75,4.85,0.1,1.5,2.4,2.6766],"k":"bloque","f":"F1"},{"b":[4.75,4.85,2.5,3.95,0.0,2.2],"k":"bloque","f":"F1"},{"b":[4.75,4.85,2.5,3.95,2.4,2.6766],"k":"bloque","f":"F1"},{"b":[4.75,4.85,1.5,2.5,2.4,2.6766],"k":"bloque","f":"F1"},{"b":[4.75,4.85,0.1,3.95,2.2,2.4],"k":"viga","f":"F1"},{"b":[4.75,4.85,4.05,5.3,0.0,2.2],"k":"bloque","f":"F1"},{"b":[4.75,4.85,4.05,5.3,2.4,2.6766],"k":"bloque","f":"F1"},{"b":[4.75,4.85,6.3,7.9,0.0,2.2],"k":"bloque","f":"F1"},{"b":[4.75,4.85,6.3,7.9,2.4,2.6766],"k":"bloque","f":"F1"},{"b":[4.75,4.85,5.3,6.3,2.4,2.6766],"k":"bloque","f":"F1"},{"b":[4.75,4.85,4.05,7.9,2.2,2.4],"k":"viga","f":"F1"},{"b":[4.742,4.75,4.05,5.3,0.0,2.6766],"k":"repello_ex","f":"F1"},{"b":[4.742,4.75,6.3,7.9,0.0,2.6766],"k":"repello_ex","f":"F1"},{"b":[4.742,4.75,5.3,6.3,2.2,2.6766],"k":"repello_ex","f":"F1"}]},{"id":"D-PA","nombre":"Puerta existente A (muro largo) — retirar y guardar","paquete":"DEM","dem":true,"solo_B":false,"fases":["F1"],"geo":[{"b":[4.775,4.825,1.52,2.48,0.0,2.1],"k":"puerta_hoja","pop":1,"f":"F1"},{"b":[4.75,4.85,1.5,2.5,2.1,2.2],"k":"puerta_marco","pop":1,"f":"F1"}]},{"id":"D-PB","nombre":"Puerta existente B (muro largo) — retirar y guardar","paquete":"DEM","dem":true,"solo_B":false,"fases":["F1"],"geo":[{"b":[4.775,4.825,5.32,6.28,0.0,2.1],"k":"puerta_hoja","pop":1,"f":"F1"},{"b":[4.75,4.85,5.3,6.3,2.1,2.2],"k":"puerta_marco","pop":1,"f":"F1"}]},{"id":"D-P1","nombre":"Corte vano P1 en muro del frente (incluye celosía dentro del corte)","paquete":"DEM","dem":true,"solo_B":false,"fases":["F1"],"geo":[{"b":[1.75,2.65,0.0,0.1,0.0,2.2],"k":"bloque","f":"F1"},{"b":[2.65,2.71,0.0,0.1,0.0,1.0],"k":"bloque","f":"F1"},{"b":[2.65,2.71,0.0,0.1,1.0,2.2],"k":"celosia","rep":[0.2,4],"f":"F1"}]},{"id":"D-V2","nombre":"Corte vano V2 en muro del frente (incluye celosía dentro del corte)","paquete":"DEM","dem":true,"solo_B":false,"fases":["F1"],"geo":[{"b":[3.5,3.85,0.0,0.1,1.0,2.2],"k":"celosia","rep":[1.2,4],"f":"F1"},{"b":[3.85,4.7,0.0,0.1,1.0,2.2],"k":"bloque","f":"F1"}]},{"id":"B-MU1","nombre":"Murete tramo 1 — bloque bajo viga","paquete":"MAM","dem":false,"solo_B":false,"fases":["F2"],"geo":[{"b":[5.85,5.95,0.1,3.95,1.0,1.6],"k":"bloque","f":"F2"}]},{"id":"B-MU2","nombre":"Murete tramo 2 — bloque bajo viga","paquete":"MAM","dem":false,"solo_B":false,"fases":["F2"],"geo":[{"b":[5.85,5.95,4.05,7.9,1.0,1.6],"k":"bloque","f":"F2"}]},{"id":"B-CP","nombre":"Cierre del pasillo (frente) — bloque 0 → 1.60","paquete":"MAM","dem":false,"solo_B":false,"fases":["F2"],"geo":[{"b":[4.85,5.85,0.0,0.1,0.0,1.6],"k":"bloque","f":"F2"}]},{"id":"A-VER","nombre":"Verticales #3 del murete (continuas murete→viga→retaqueo)","paquete":"EST","dem":false,"solo_B":false,"fases":["F2"],"geo":[{"b":[5.892,5.908,0.862,0.878,0.75,2.4158],"k":"acero","f":"F2"},{"b":[5.892,5.908,1.632,1.648,0.75,2.4158],"k":"acero","f":"F2"},{"b":[5.892,5.908,2.402,2.418,0.75,2.4158],"k":"acero","f":"F2"},{"b":[5.892,5.908,3.172,3.188,0.75,2.4158],"k":"acero","f":"F2"},{"b":[5.892,5.908,4.812,4.828,0.75,2.4158],"k":"acero","f":"F2"},{"b":[5.892,5.908,5.582,5.598,0.75,2.4158],"k":"acero","f":"F2"},{"b":[5.892,5.908,6.352,6.368,0.75,2.4158],"k":"acero","f":"F2"},{"b":[5.892,5.908,7.122,7.138,0.75,2.4158],"k":"acero","f":"F2"}]},{"id":"MCH-CEL","nombre":"Machón de celosía P1–V2: resane de huecos + 2 #3","paquete":"EST","dem":false,"solo_B":false,"fases":["F2"],"geo":[{"b":[2.72,3.49,0.02,0.08,1.01,2.19],"k":"mortero","f":"F2"},{"b":[2.752,2.768,0.042,0.058,0.85,2.3],"k":"acero","f":"F2"},{"b":[3.442,3.458,0.042,0.058,0.85,2.3],"k":"acero","f":"F2"}]},{"id":"VG-MU1","nombre":"Viga de amarre murete tramo 1 (0.10×0.20, 2 #4, C #3 @0.30)","paquete":"EST","dem":false,"solo_B":false,"fases":["F3"],"geo":[{"b":[5.85,5.95,0.1,3.95,1.6,1.8],"k":"concreto","f":"F3"}]},{"id":"VG-MU2","nombre":"Viga de amarre murete tramo 2","paquete":"EST","dem":false,"solo_B":false,"fases":["F3"],"geo":[{"b":[5.85,5.95,4.05,7.9,1.6,1.8],"k":"concreto","f":"F3"}]},{"id":"DT-CP","nombre":"Tubo de acero 2\"×4\" del cierre: soldado al poste y en continuidad a la viga existente del frente","paquete":"EST","dem":false,"solo_B":false,"fases":["F3","F4"],"geo":[{"b":[4.7,5.85,0.005,0.095,2.2,2.25],"k":"acero_tubo","gr":"x","f":"F3"}]},{"id":"DT-P2","nombre":"Dintel de acero P2: tubo 2\"×4\" + platina a viga existente + colgante al caballo","paquete":"EST","dem":false,"solo_B":false,"fases":["F2","F3","F4"],"geo":[{"b":[4.85,5.85,3.955,4.045,2.2,2.25],"k":"acero_tubo","gr":"x","f":"F3"},{"b":[4.844,4.85,3.94,4.06,2.15,2.35],"k":"acero","pop":1,"f":"F3"},{"b":[4.951,4.989,3.98,4.018,2.25,2.494],"k":"acero","pop":1,"f":"F3"}]},{"id":"R-MU1","nombre":"Retaqueo murete tramo 1 (3 hiladas + remate al zinc)","paquete":"MAM","dem":false,"solo_B":false,"fases":["F4"],"geo":[{"b":[5.85,5.95,0.1,3.95,1.8,2.4658],"k":"bloque","f":"F4"}]},{"id":"R-MU2","nombre":"Retaqueo murete tramo 2","paquete":"MAM","dem":false,"solo_B":false,"fases":["F4"],"geo":[{"b":[5.85,5.95,4.05,7.9,1.8,2.4658],"k":"bloque","f":"F4"}]},{"id":"R-CP","nombre":"Cierre del pasillo 1.60 → 2.20 bajo el tubo","paquete":"MAM","dem":false,"solo_B":false,"fases":["F4"],"geo":[{"b":[4.85,5.85,0.0,0.1,1.6,2.2],"k":"bloque","f":"F4"}]},{"id":"RL-CP","nombre":"Relleno sobre el tubo del cierre (pedazos de bloque + mortero)","paquete":"MAM","dem":false,"solo_B":false,"fases":["F4"],"geo":[{"b":[4.85,5.85,0.0,0.1,2.25,2.517],"k":"relleno","tz":[2.517,2.3254],"f":"F4"}]},{"id":"MJ-P2","nombre":"Relleno del mojinete P2 (pedazos de bloque + mortero)","paquete":"MAM","dem":false,"solo_B":false,"fases":["F4"],"geo":[{"b":[4.85,5.85,3.95,4.05,2.25,2.517],"k":"relleno","tz":[2.517,2.3254],"f":"F4"}]},{"id":"V2","nombre":"Celosía V2 1.20×1.20 (16 piezas NUEVAS)","paquete":"VAN","dem":false,"solo_B":false,"fases":["F5"],"geo":[{"b":[3.5,4.7,0.0,0.1,1.0,2.2],"k":"celosia","rep":[4,4],"f":"F5"}]},{"id":"P1","nombre":"Puerta principal 3'×7' con marco (reutilizada)","paquete":"VAN","dem":false,"solo_B":false,"fases":["F5"],"geo":[{"b":[1.755,1.775,0.0,0.1,0.0,2.16],"k":"puerta_marco","pop":1,"f":"F5"},{"b":[2.685,2.705,0.0,0.1,0.0,2.16],"k":"puerta_marco","pop":1,"f":"F5"},{"b":[1.755,2.705,0.0,0.1,2.14,2.16],"k":"puerta_marco","pop":1,"f":"F5"},{"b":[1.775,2.685,0.03,0.07,0.0,2.134],"k":"puerta_hoja","pop":1,"pv":[1.775,0.07],"a1":90,"f":"F5"}]},{"id":"P2","nombre":"Puerta recámara 3'×7' con marco (reutilizada)","paquete":"VAN","dem":false,"solo_B":false,"fases":["F5"],"geo":[{"b":[4.895,4.915,3.95,4.05,0.0,2.16],"k":"puerta_marco","pop":1,"f":"F5"},{"b":[5.825,5.845,3.95,4.05,0.0,2.16],"k":"puerta_marco","pop":1,"f":"F5"},{"b":[4.895,5.845,3.95,4.05,2.14,2.16],"k":"puerta_marco","pop":1,"f":"F5"},{"b":[4.915,5.825,3.98,4.02,0.0,2.134],"k":"puerta_hoja","pop":1,"pv":[5.825,4.02],"a1":-90,"f":"F5"}]},{"id":"MC-P2","nombre":"Mocheta P2 (4 cm)","paquete":"VAN","dem":false,"solo_B":false,"fases":["F5"],"geo":[{"b":[4.85,4.89,3.95,4.05,0.0,2.2],"k":"mortero","f":"F5"}]},{"id":"S1","nombre":"Interruptor triple (L1·L2·L4)","paquete":"ELE","dem":false,"solo_B":false,"fases":["F2","F6"],"geo":[{"b":[2.83,2.93,0.05,0.1,1.15,1.25],"k":"cajilla","pop":1,"f":"F2"},{"b":[2.78,2.98,0.1,0.112,1.13,1.27],"k":"aparato","pop":1,"f":"F6"}]},{"id":"S2","nombre":"Interruptor sencillo (L3)","paquete":"ELE","dem":false,"solo_B":false,"fases":["F6"],"geo":[{"b":[1.71,1.75,1.65,1.75,1.15,1.25],"k":"cajilla","pop":1,"f":"F6"},{"b":[1.75,1.762,1.6625,1.7375,1.14,1.26],"k":"aparato","pop":1,"f":"F6"}]},{"id":"S3","nombre":"Interruptor sencillo (L5)","paquete":"ELE","dem":false,"solo_B":false,"fases":["F6"],"geo":[{"b":[4.57,4.67,4.01,4.05,1.15,1.25],"k":"cajilla","pop":1,"f":"F6"},{"b":[4.5825,4.6575,4.05,4.062,1.14,1.26],"k":"aparato","pop":1,"f":"F6"}]},{"id":"L1","nombre":"Luz (techo) comedor","paquete":"ELE","dem":false,"solo_B":false,"fases":["F6"],"geo":[{"b":[3.74,3.86,2.24,2.36,2.718,2.768],"k":"cajilla","pop":1,"f":"F6"},{"sph":[3.8,2.3,2.678],"r":0.045,"k":"luminaria","pop":1,"f":"F6"}]},{"id":"L2","nombre":"Luz (techo) cocina","paquete":"ELE","dem":false,"solo_B":false,"fases":["F6"],"geo":[{"b":[4.04,4.16,0.69,0.81,2.661,2.711],"k":"cajilla","pop":1,"f":"F6"},{"sph":[4.1,0.75,2.621],"r":0.045,"k":"luminaria","pop":1,"f":"F6"}]},{"id":"L3","nombre":"Luz (techo) lavandería","paquete":"ELE","dem":false,"solo_B":false,"fases":["F6"],"geo":[{"b":[0.89,1.01,2.94,3.06,3.08,3.13],"k":"cajilla","pop":1,"f":"F6"},{"sph":[0.95,3.0,3.04],"r":0.045,"k":"luminaria","pop":1,"f":"F6"}]},{"id":"L4","nombre":"Aplique exterior fachada","paquete":"ELE","dem":false,"solo_B":false,"fases":["F2","F6"],"geo":[{"b":[3.05,3.15,0.0,0.05,1.95,2.05],"k":"cajilla","pop":1,"f":"F2"},{"b":[3.02,3.18,-0.012,0.0,1.92,2.08],"k":"luminaria","pop":1,"f":"F6"}]},{"id":"L5","nombre":"Luz (techo) recámara (exist.)","paquete":"ELE","dem":false,"solo_B":false,"fases":["F6"],"geo":[{"b":[3.19,3.31,5.94,6.06,2.823,2.873],"k":"cajilla","pop":1,"f":"F6"},{"sph":[3.25,6.0,2.783],"r":0.045,"k":"luminaria","pop":1,"f":"F6"}]},{"id":"T1","nombre":"Tomacorriente GFCI lavadora","paquete":"ELE","dem":false,"solo_B":false,"fases":["F6"],"geo":[{"b":[0.11,0.15,2.5,2.6,1.05,1.15],"k":"cajilla","pop":1,"f":"F6"},{"b":[0.15,0.162,2.5125,2.5875,1.04,1.16],"k":"aparato","pop":1,"f":"F6"}]},{"id":"T2","nombre":"Tomacorriente GFCI mostrador","paquete":"ELE","dem":false,"solo_B":false,"fases":["F2","F6"],"geo":[{"b":[3.33,3.43,0.05,0.1,1.05,1.15],"k":"cajilla","pop":1,"f":"F2"},{"b":[3.3425,3.4175,0.1,0.112,1.04,1.16],"k":"aparato","pop":1,"f":"F6"}]},{"id":"T3","nombre":"Tomacorriente doble refrigeradora","paquete":"ELE","dem":false,"solo_B":false,"fases":["F2","F6"],"geo":[{"b":[5.4,5.5,0.05,0.1,1.05,1.15],"k":"cajilla","pop":1,"f":"F2"},{"b":[5.4125,5.4875,0.1,0.112,1.04,1.16],"k":"aparato","pop":1,"f":"F6"}]},{"id":"T4","nombre":"Tomacorriente doble mesa","paquete":"ELE","dem":false,"solo_B":false,"fases":["F6"],"geo":[{"b":[5.85,5.89,2.05,2.15,0.35,0.45],"k":"cajilla","pop":1,"f":"F6"},{"b":[5.838,5.85,2.0625,2.1375,0.34,0.46],"k":"aparato","pop":1,"f":"F6"}]},{"id":"T6","nombre":"Tomacorriente doble cabecera","paquete":"ELE","dem":false,"solo_B":false,"fases":["F6"],"geo":[{"b":[5.85,5.89,7.3,7.4,0.35,0.45],"k":"cajilla","pop":1,"f":"F6"},{"b":[5.838,5.85,7.3125,7.3875,0.34,0.46],"k":"aparato","pop":1,"f":"F6"}]},{"id":"REP-REC","nombre":"Repello interior recámara 1.5 cm (OPCIÓN B)","paquete":"ACA","dem":false,"solo_B":true,"fases":["FR"],"geo":[{"b":[1.75,2.65,7.885,7.9,0.0,3.1108],"k":"repello","tz":[3.1108,2.9384],"f":"FR"},{"b":[3.85,5.85,7.885,7.9,0.0,2.7086],"k":"repello","tz":[2.7086,2.3254],"f":"FR"},{"b":[2.65,3.85,7.885,7.9,0.0,0.9],"k":"repello","f":"FR"},{"b":[2.65,3.85,7.885,7.9,2.1,2.9384],"k":"repello","tz":[2.9384,2.7086],"f":"FR"},{"b":[1.75,4.85,4.05,4.065,0.0,3.1108],"k":"repello","tz":[3.1108,2.517],"f":"FR"},{"b":[4.85,5.85,4.05,4.065,2.2,2.517],"k":"repello","tz":[2.517,2.3254],"f":"FR"},{"b":[1.75,1.765,4.05,4.15,0.0,3.28],"k":"repello","f":"FR"},{"b":[1.75,1.765,4.85,7.9,0.0,3.28],"k":"repello","f":"FR"},{"b":[1.75,1.765,4.15,4.85,2.1,3.28],"k":"repello","f":"FR"},{"b":[5.835,5.85,4.05,7.9,0.0,2.4658],"k":"repello","f":"FR"}]}],"contexto":[{"grupo":"muros","nombre":"Muro del frente (existente)","piezas":[{"b":[1.65,1.75,0.0,0.1,0.0,2.2],"k":"bloque_ex"},{"b":[1.65,1.75,0.0,0.1,2.4,3.13],"k":"bloque_ex","tz":[3.13,3.1108]},{"b":[1.75,2.65,0.0,0.1,2.4,3.1108],"k":"bloque_ex","tz":[3.1108,2.9384]},{"b":[4.7,4.85,0.0,0.1,0.0,2.2],"k":"bloque_ex"},{"b":[4.7,4.85,0.0,0.1,2.4,2.5457],"k":"bloque_ex","tz":[2.5457,2.517]},{"b":[3.85,4.7,0.0,0.1,0.0,1.0],"k":"bloque_ex"},{"b":[3.85,4.7,0.0,0.1,2.4,2.7086],"k":"bloque_ex","tz":[2.7086,2.5457]},{"b":[2.71,3.85,0.0,0.1,0.0,1.0],"k":"bloque_ex"},{"b":[2.65,3.85,0.0,0.1,2.4,2.9384],"k":"bloque_ex","tz":[2.9384,2.7086]}]},{"grupo":"vanos","nombre":"Celosía existente del machón P1–V2 (se queda; sus huecos se resanan en F2)","piezas":[{"b":[2.71,3.5,0.0,0.1,1.0,2.2],"k":"celosia_ex","rep":[2.6333333333333337,4]}]},{"grupo":"muros","nombre":"Viga existente del frente (2.20–2.40)","piezas":[{"b":[1.65,4.85,0.0,0.1,2.2,2.4],"k":"viga_ex"}]},{"grupo":"muros","nombre":"Muro trasero cuarto 1","piezas":[{"b":[1.65,1.75,0.1,2.0,0.0,3.2704],"k":"bloque_ex"}]},{"grupo":"muros","nombre":"Muro exterior baños 6\"","piezas":[{"b":[0.0,0.15,2.0,6.0,0.0,3.13],"k":"bloque_ex"}]},{"grupo":"muros","nombre":"Muro frente baños","piezas":[{"b":[0.0,1.75,2.0,2.1,0.0,3.13],"k":"bloque_ex"}]},{"grupo":"muros","nombre":"Muro fondo baños","piezas":[{"b":[0.0,1.65,5.9,6.0,0.0,3.13],"k":"bloque_ex"}]},{"grupo":"muros","nombre":"Muro divisorio (anexo)","piezas":[{"b":[0.15,1.65,3.95,4.05,0.0,3.13],"k":"bloque_ex"}]},{"grupo":"muros","nombre":"Muro divisorio (existente)","piezas":[{"b":[1.65,4.75,3.95,4.05,0.0,2.2],"k":"bloque_ex"},{"b":[1.65,4.75,3.95,4.05,2.4,3.13],"k":"bloque_ex","tz":[3.13,2.5361]}]},{"grupo":"muros","nombre":"Viga existente del divisorio","piezas":[{"b":[1.65,4.75,3.95,4.05,2.2,2.4],"k":"viga_ex"}]},{"grupo":"muros","nombre":"Cruce conservado del muro largo","piezas":[{"b":[4.75,4.85,3.95,4.05,0.0,2.5361],"k":"bloque_ex","tz":[2.5361,2.517]}]},{"grupo":"muros","nombre":"Muro trasero recámara (con P3)","piezas":[{"b":[1.65,1.75,4.05,4.15,0.0,3.2704],"k":"bloque_ex"},{"b":[1.65,1.75,4.85,7.9,0.0,3.2704],"k":"bloque_ex"},{"b":[1.65,1.75,4.15,4.85,2.1,3.2704],"k":"bloque_ex"}]},{"grupo":"muros","nombre":"Muro del fondo (con V1)","piezas":[{"b":[1.65,2.65,7.9,8.0,0.0,3.13],"k":"bloque_ex","tz":[3.13,2.9384]},{"b":[3.85,5.95,7.9,8.0,0.0,2.7086],"k":"bloque_ex","tz":[2.7086,2.3063]},{"b":[2.65,3.85,7.9,8.0,0.0,0.9],"k":"bloque_ex"},{"b":[2.65,3.85,7.9,8.0,2.1,2.9384],"k":"bloque_ex","tz":[2.9384,2.7086]}]},{"grupo":"muros","nombre":"Murete existente (5 hiladas, hasta 1.00)","piezas":[{"b":[5.85,5.95,0.0,7.9,0.0,1.0],"k":"bloque_ex"}]},{"grupo":"muros","nombre":"Muro de contención 6\" bajo el murete","piezas":[{"b":[5.8,5.95,0.0,8.0,-1.9,0.0],"k":"bloque_ex"}]},{"grupo":"muros","nombre":"Repello existente de la recámara (pintado de rosado)","piezas":[{"b":[1.75,2.65,7.892,7.9,0.0,3.1108],"k":"repello_ex","tz":[3.1108,2.9384]},{"b":[3.85,4.75,7.892,7.9,0.0,2.7086],"k":"repello_ex","tz":[2.7086,2.5361]},{"b":[2.65,3.85,7.892,7.9,0.0,0.9],"k":"repello_ex"},{"b":[2.65,3.85,7.892,7.9,2.1,2.9384],"k":"repello_ex","tz":[2.9384,2.7086]},{"b":[1.75,4.75,4.05,4.058,0.0,3.1108],"k":"repello_ex","tz":[3.1108,2.5361]},{"b":[1.75,1.758,4.05,4.15,0.0,3.2704],"k":"repello_ex"},{"b":[1.75,1.758,4.85,7.9,0.0,3.2704],"k":"repello_ex"},{"b":[1.75,1.758,4.15,4.85,2.1,3.2704],"k":"repello_ex"}]},{"grupo":"muros","nombre":"Repello existente del baño (sin pintar)","piezas":[{"b":[0.15,0.158,4.05,5.9,0.0,3.13],"k":"repello_nat"},{"b":[1.642,1.65,4.05,4.15,0.0,3.13],"k":"repello_nat"},{"b":[1.642,1.65,4.85,5.9,0.0,3.13],"k":"repello_nat"},{"b":[1.642,1.65,4.15,4.85,2.1,3.13],"k":"repello_nat"},{"b":[0.15,1.65,5.892,5.9,0.0,3.13],"k":"repello_nat"},{"b":[0.15,1.65,4.05,4.058,0.0,3.13],"k":"repello_nat"}]},{"grupo":"vanos","nombre":"V1 ventana existente","piezas":[{"b":[2.65,3.85,7.94,7.96,0.9,2.1],"k":"vidrio"}]},{"grupo":"fuera","nombre":"Recibidor: descanso al nivel del piso alto (existente)","piezas":[{"b":[4.75,5.8,-1.0,0.0,-0.1,0.0],"k":"losa"}]},{"grupo":"fuera","nombre":"Pozo de la antigua escalera: bloque de 6\", abierto ~1.90 (existente)","piezas":[{"b":[5.8,5.95,-1.0,0.0,-1.9,-0.2],"k":"bloque_ex"},{"b":[5.95,6.95,-1.0,-0.85,-1.9,-0.2],"k":"bloque_ex"},{"b":[6.8,6.95,-0.85,0.0,-1.9,-0.2],"k":"bloque_ex"},{"b":[5.8,5.95,-1.0,0.0,-0.2,0.0],"k":"viga_ex"},{"b":[5.95,6.95,-1.0,-0.85,-0.2,0.0],"k":"viga_ex"},{"b":[6.8,6.95,-0.85,0.0,-0.2,0.0],"k":"viga_ex"}]},{"grupo":"fuera","nombre":"Varillas salidas de la viga del pozo","piezas":[{"b":[5.834,5.846,-0.966,-0.954,0.0,0.45],"k":"varilla_ex"},{"b":[5.904,5.916,-0.966,-0.954,0.0,0.45],"k":"varilla_ex"},{"b":[6.904,6.916,-0.966,-0.954,0.0,0.45],"k":"varilla_ex"},{"b":[6.904,6.916,-0.896,-0.884,0.0,0.45],"k":"varilla_ex"},{"b":[5.834,5.846,-0.046,-0.034,0.0,0.45],"k":"varilla_ex"},{"b":[5.904,5.916,-0.046,-0.034,0.0,0.45],"k":"varilla_ex"},{"b":[6.904,6.916,-0.046,-0.034,0.0,0.45],"k":"varilla_ex"},{"b":[6.834,6.846,-0.046,-0.034,0.0,0.45],"k":"varilla_ex"}]},{"grupo":"estructura","nombre":"Postes tubo 4×4 (9), pintados con anticorrosivo blanco","piezas":[{"b":[1.649,1.751,-0.001,0.101,0.0,3.1204],"k":"poste_ex"},{"b":[1.649,1.751,3.949,4.051,0.0,3.1204],"k":"poste_ex"},{"b":[1.649,1.751,7.899,8.001,0.0,3.1204],"k":"poste_ex"},{"b":[5.849,5.951,-0.001,0.101,0.0,2.3158],"k":"poste_ex"},{"b":[5.849,5.951,3.949,4.051,0.0,2.3158],"k":"poste_ex"},{"b":[5.849,5.951,7.899,8.001,0.0,2.3158],"k":"poste_ex"},{"b":[9.849,9.951,-0.001,0.101,-1.9,1.5496],"k":"poste_ex"},{"b":[9.849,9.951,3.949,4.051,-1.9,1.5496],"k":"poste_ex"},{"b":[9.849,9.951,7.899,8.001,-1.9,1.5496],"k":"poste_ex"}]},{"grupo":"estructura","nombre":"Caballos (2 carriolas 6×2 enchapadas)","piezas":[{"b":[0.65,10.95,0.0,0.1,1.3484,3.4716],"k":"acero_ex","tz":[3.4716,1.4984],"bz":[3.3216,1.3484]},{"b":[0.65,10.95,3.95,4.05,1.3484,3.4716],"k":"acero_ex","tz":[3.4716,1.4984],"bz":[3.3216,1.3484]},{"b":[0.65,10.95,7.9,8.0,1.3484,3.4716],"k":"acero_ex","tz":[3.4716,1.4984],"bz":[3.3216,1.3484]}]},{"grupo":"estructura","nombre":"Carriolas 4×2 @0.90","piezas":[{"b":[0.675,0.725,-1.0,9.0,3.362,3.462],"k":"acero_ex"},{"b":[1.575,1.625,-1.0,9.0,3.1896,3.2896],"k":"acero_ex"},{"b":[2.475,2.525,-1.0,9.0,3.0172,3.1172],"k":"acero_ex"},{"b":[3.375,3.425,-1.0,9.0,2.8448,2.9448],"k":"acero_ex"},{"b":[4.275,4.325,-1.0,9.0,2.6723,2.7723],"k":"acero_ex"},{"b":[5.175,5.225,-1.0,9.0,2.4999,2.5999],"k":"acero_ex"},{"b":[6.075,6.125,-1.0,9.0,2.3275,2.4275],"k":"acero_ex"},{"b":[6.975,7.025,-1.0,9.0,2.1551,2.2551],"k":"acero_ex"},{"b":[7.875,7.925,-1.0,9.0,1.9827,2.0827],"k":"acero_ex"},{"b":[8.775,8.825,-1.0,9.0,1.8103,1.9103],"k":"acero_ex"},{"b":[9.675,9.725,-1.0,9.0,1.6379,1.7379],"k":"acero_ex"},{"b":[10.575,10.625,-1.0,9.0,1.4655,1.5655],"k":"acero_ex"}]},{"grupo":"techo","nombre":"Zinc (una agua, 19.2 %, alero 1.00)","piezas":[{"b":[0.65,10.95,-1.0,9.0,1.4984,3.4836],"k":"zinc","tz":[3.4836,1.5104],"bz":[3.4716,1.4984]}]},{"grupo":"techo","nombre":"Fascia: 4\" en los costados (tapa el encarriolado) y 6\" en las bocas de los caballos","piezas":[{"b":[0.63,10.97,-1.02,-1.0,1.3984,3.4866],"k":"fascia","tz":[3.4866,1.5134],"bz":[3.3716,1.3984]},{"b":[0.63,10.97,9.0,9.02,1.3984,3.4866],"k":"fascia","tz":[3.4866,1.5134],"bz":[3.3716,1.3984]},{"b":[0.63,0.65,-1.0,9.0,3.3216,3.4866],"k":"fascia"},{"b":[10.95,10.97,-1.0,9.0,1.3484,1.5134],"k":"fascia"}]},{"grupo":"techo","nombre":"Techo del anexo de baños (referencial, no levantado)","piezas":[{"b":[-0.3,1.65,1.7,6.3,3.13,3.16],"k":"zinc"}]},{"grupo":"terreno","nombre":"Losa del nivel alto","piezas":[{"b":[1.65,5.95,0.0,8.0,-0.1,0.0],"k":"losa"},{"b":[0.0,1.65,2.0,6.0,-0.1,0.0],"k":"losa"}]},{"grupo":"terreno","nombre":"Losa de la sala (nivel −1.90)","piezas":[{"b":[5.95,9.95,0.0,8.0,-2.0,-1.9],"k":"losa"}]},{"grupo":"terreno","nombre":"Terreno","piezas":[{"b":[-4.0,5.8,-6.0,12.0,-2.4,-0.1],"k":"terreno"},{"b":[5.8,14.0,-6.0,12.0,-2.4,-2.0],"k":"terreno"}]}],"muebles":[{"nombre":"Meseta","piezas":[{"b":[2.98,3.77,0.1,0.63,0.0,0.1],"k":"zocalo"},{"b":[2.95,3.8,0.1,0.67,0.1,0.86],"k":"gabinete"},{"b":[2.95,3.8,0.1,0.7,0.86,0.9],"k":"meson"},{"b":[2.964,3.371,0.67,0.688,0.13,0.83],"k":"puerta_mueble"},{"b":[3.325,3.345,0.688,0.7,0.62,0.78],"k":"metal"},{"b":[3.379,3.786,0.67,0.688,0.13,0.83],"k":"puerta_mueble"},{"b":[3.405,3.425,0.688,0.7,0.62,0.78],"k":"metal"}]},{"nombre":"Fregadero","piezas":[{"b":[3.83,4.37,0.1,0.63,0.0,0.1],"k":"zocalo"},{"b":[3.8,4.4,0.1,0.67,0.1,0.86],"k":"gabinete"},{"b":[3.8,4.4,0.1,0.7,0.86,0.9],"k":"meson"},{"b":[3.814,4.096,0.67,0.688,0.13,0.83],"k":"puerta_mueble"},{"b":[4.05,4.07,0.688,0.7,0.62,0.78],"k":"metal"},{"b":[4.104,4.386,0.67,0.688,0.13,0.83],"k":"puerta_mueble"},{"b":[4.13,4.15,0.688,0.7,0.62,0.78],"k":"metal"},{"b":[3.88,4.32,0.2,0.6,0.9,0.906],"k":"tarja"},{"b":[3.93,4.27,0.25,0.55,0.906,0.908],"k":"tarja_fondo"},{"cyl":[4.1,0.15,0.9,4.1,0.15,1.18],"r":0.014,"k":"metal"},{"cyl":[4.1,0.15,1.18,4.1,0.34,1.18],"r":0.012,"k":"metal"}]},{"nombre":"Estufa","piezas":[{"b":[4.46,4.99,0.1,0.7,0.0,0.88],"k":"blanco"},{"b":[4.46,4.99,0.1,0.7,0.88,0.9],"k":"negro"},{"b":[4.46,4.99,0.1,0.15,0.9,1.0],"k":"blanco"},{"cyl":[4.604,0.292,0.9,4.604,0.292,0.915],"r":0.055,"k":"quemador"},{"cyl":[4.604,0.532,0.9,4.604,0.532,0.915],"r":0.055,"k":"quemador"},{"cyl":[4.846,0.292,0.9,4.846,0.292,0.915],"r":0.055,"k":"quemador"},{"cyl":[4.846,0.532,0.9,4.846,0.532,0.915],"r":0.055,"k":"quemador"},{"b":[4.5,4.95,0.7,0.712,0.12,0.7],"k":"vidrio_oscuro"},{"cyl":[4.53,0.74,0.75,4.92,0.74,0.75],"r":0.01,"k":"metal"},{"b":[4.55,4.59,0.7,0.72,0.8,0.84],"k":"negro"},{"b":[4.6525,4.6925,0.7,0.72,0.8,0.84],"k":"negro"},{"b":[4.755,4.795,0.7,0.72,0.8,0.84],"k":"negro"},{"b":[4.8575,4.8975,0.7,0.72,0.8,0.84],"k":"negro"}]},{"nombre":"Ref.","piezas":[{"b":[5.125,5.825,0.14,0.78,0.0,1.7],"k":"inox"},{"b":[5.125,5.825,0.78,0.788,1.16,1.17],"k":"negro"},{"cyl":[5.76,0.81,0.55,5.76,0.81,1.08],"r":0.012,"k":"metal"},{"cyl":[5.76,0.81,1.24,5.76,0.81,1.55],"r":0.012,"k":"metal"}]},{"nombre":"Mesa","piezas":[{"b":[5.15,5.85,1.8,2.8,0.72,0.75],"k":"madera"},{"b":[5.76,5.81,1.84,1.89,0.0,0.72],"k":"madera"},{"b":[5.19,5.24,1.84,1.89,0.0,0.72],"k":"madera"},{"b":[5.76,5.81,2.71,2.76,0.0,0.72],"k":"madera"},{"b":[5.19,5.24,2.71,2.76,0.0,0.72],"k":"madera"}]},{"nombre":"Silla 1","piezas":[{"b":[4.72,5.1,1.9,2.28,0.42,0.46],"k":"madera"},{"b":[4.72,4.755,1.91,1.945,0.0,0.42],"k":"madera"},{"b":[5.055,5.09,1.91,1.945,0.0,0.42],"k":"madera"},{"b":[4.72,4.755,2.235,2.27,0.0,0.42],"k":"madera"},{"b":[5.055,5.09,2.235,2.27,0.0,0.42],"k":"madera"},{"b":[4.7,4.735,1.9,2.28,0.42,0.9],"k":"madera"},{"b":[4.7,4.73,1.92,2.26,0.62,0.86],"k":"madera_osc"}]},{"nombre":"Silla 2","piezas":[{"b":[4.72,5.1,2.32,2.7,0.42,0.46],"k":"madera"},{"b":[4.72,4.755,2.33,2.365,0.0,0.42],"k":"madera"},{"b":[5.055,5.09,2.33,2.365,0.0,0.42],"k":"madera"},{"b":[4.72,4.755,2.655,2.69,0.0,0.42],"k":"madera"},{"b":[5.055,5.09,2.655,2.69,0.0,0.42],"k":"madera"},{"b":[4.7,4.735,2.32,2.7,0.42,0.9],"k":"madera"},{"b":[4.7,4.73,2.34,2.68,0.62,0.86],"k":"madera_osc"}]},{"nombre":"Sillón 2p","piezas":[{"b":[2.5,2.54,3.85,3.89,0.0,0.1],"k":"madera_osc"},{"b":[2.5,2.54,3.21,3.25,0.0,0.1],"k":"madera_osc"},{"b":[3.76,3.8,3.85,3.89,0.0,0.1],"k":"madera_osc"},{"b":[3.76,3.8,3.21,3.25,0.0,0.1],"k":"madera_osc"},{"b":[2.45,3.85,3.15,3.95,0.1,0.4],"k":"tela"},{"b":[2.45,2.61,3.15,3.95,0.4,0.62],"k":"tela"},{"b":[3.69,3.85,3.15,3.95,0.4,0.62],"k":"tela"},{"b":[2.61,3.69,3.75,3.95,0.4,0.84],"k":"tela"},{"b":[2.62,3.145,3.16,3.75,0.4,0.5],"k":"tela_claro"},{"b":[3.155,3.68,3.16,3.75,0.4,0.5],"k":"tela_claro"},{"b":[2.62,3.145,3.63,3.77,0.5,0.8],"k":"tela_claro"},{"b":[3.155,3.68,3.63,3.77,0.5,0.8],"k":"tela_claro"}]},{"nombre":"Lavadora","piezas":[{"b":[0.2,0.84,2.23,2.87,0.0,0.86],"k":"blanco"},{"b":[0.2,0.35,2.23,2.87,0.86,0.95],"k":"blanco"},{"b":[0.35,0.355,2.28,2.5,0.88,0.93],"k":"vidrio_oscuro"},{"cyl":[0.84,2.55,0.47,0.862,2.55,0.47],"r":0.19,"k":"metal"},{"cyl":[0.84,2.55,0.47,0.87,2.55,0.47],"r":0.15,"k":"vidrio_oscuro"}]},{"nombre":"Lavadero","piezas":[{"b":[0.15,0.75,3.1,3.65,0.0,0.8],"k":"concreto"},{"b":[0.15,0.75,3.1,3.65,0.8,0.86],"k":"concreto_claro"},{"b":[0.27,0.69,3.15,3.6,0.86,0.866],"k":"tarja_fondo"},{"cyl":[0.15,3.375,1.1,0.31,3.375,1.1],"r":0.012,"k":"metal"}]},{"nombre":"Cama 1.50","piezas":[{"b":[2.5,4.0,6.0,7.9,0.1,0.3],"k":"madera"},{"b":[2.52,2.58,7.82,7.88,0.0,0.1],"k":"madera_osc"},{"b":[2.52,2.58,6.02,6.08,0.0,0.1],"k":"madera_osc"},{"b":[3.92,3.98,7.82,7.88,0.0,0.1],"k":"madera_osc"},{"b":[3.92,3.98,6.02,6.08,0.0,0.1],"k":"madera_osc"},{"b":[2.5,4.0,7.85,7.9,0.1,0.88],"k":"madera_osc"},{"b":[2.53,3.97,6.02,7.84,0.3,0.52],"k":"colchon"},{"b":[2.5,4.0,6.0,7.28,0.48,0.56],"k":"cobija"},{"b":[2.5,4.0,6.0,6.03,0.3,0.56],"k":"cobija"},{"b":[2.58,3.22,7.45,7.8,0.52,0.64],"k":"almohada"},{"b":[3.28,3.92,7.45,7.8,0.52,0.64],"k":"almohada"}]},{"nombre":"Mesa noche 1","piezas":[{"b":[2.0,2.45,7.45,7.9,0.08,0.55],"k":"madera"},{"b":[2.01,2.05,7.85,7.89,0.0,0.08],"k":"madera_osc"},{"b":[2.01,2.05,7.46,7.5,0.0,0.08],"k":"madera_osc"},{"b":[2.4,2.44,7.85,7.89,0.0,0.08],"k":"madera_osc"},{"b":[2.4,2.44,7.46,7.5,0.0,0.08],"k":"madera_osc"},{"b":[2.03,2.42,7.44,7.45,0.34,0.51],"k":"madera_osc"},{"cyl":[2.225,7.675,0.55,2.225,7.675,0.58],"r":0.07,"k":"metal"},{"cyl":[2.225,7.675,0.58,2.225,7.675,0.8],"r":0.01,"k":"metal"},{"cyl":[2.225,7.675,0.78,2.225,7.675,0.95],"r":0.11,"k":"pantalla"}]},{"nombre":"Mesa noche 2","piezas":[{"b":[4.05,4.5,7.45,7.9,0.08,0.55],"k":"madera"},{"b":[4.06,4.1,7.85,7.89,0.0,0.08],"k":"madera_osc"},{"b":[4.06,4.1,7.46,7.5,0.0,0.08],"k":"madera_osc"},{"b":[4.45,4.49,7.85,7.89,0.0,0.08],"k":"madera_osc"},{"b":[4.45,4.49,7.46,7.5,0.0,0.08],"k":"madera_osc"},{"b":[4.08,4.47,7.44,7.45,0.34,0.51],"k":"madera_osc"},{"cyl":[4.275,7.675,0.55,4.275,7.675,0.58],"r":0.07,"k":"metal"},{"cyl":[4.275,7.675,0.58,4.275,7.675,0.8],"r":0.01,"k":"metal"},{"cyl":[4.275,7.675,0.78,4.275,7.675,0.95],"r":0.11,"k":"pantalla"}]},{"nombre":"Cama 0.90","piezas":[{"b":[4.95,5.85,5.15,7.05,0.1,0.3],"k":"madera"},{"b":[4.97,5.03,6.97,7.03,0.0,0.1],"k":"madera_osc"},{"b":[4.97,5.03,5.17,5.23,0.0,0.1],"k":"madera_osc"},{"b":[5.77,5.83,6.97,7.03,0.0,0.1],"k":"madera_osc"},{"b":[5.77,5.83,5.17,5.23,0.0,0.1],"k":"madera_osc"},{"b":[4.95,5.85,7.0,7.05,0.1,0.88],"k":"madera_osc"},{"b":[4.98,5.82,5.17,6.99,0.3,0.52],"k":"colchon"},{"b":[4.95,5.85,5.15,6.43,0.48,0.56],"k":"cobija"},{"b":[4.95,5.85,5.15,5.18,0.3,0.56],"k":"cobija"},{"b":[5.03,5.77,6.6,6.95,0.52,0.64],"k":"almohada"}]},{"nombre":"Clóset","piezas":[{"b":[2.6,4.4,4.05,4.63,0.0,2.0],"k":"madera_clara"},{"b":[2.61,3.496,4.63,4.65,0.06,1.97],"k":"puerta_mueble"},{"b":[3.504,4.39,4.63,4.65,0.06,1.97],"k":"puerta_mueble"},{"b":[2.6,4.4,4.62,4.65,0.0,0.06],"k":"madera_osc"},{"b":[3.44,3.46,4.65,4.665,0.85,1.25],"k":"metal"},{"b":[3.54,3.56,4.65,4.665,0.85,1.25],"k":"metal"}]}],"referencias":{"QR1":{"x":2.25,"y":3.95,"z":1.5,"normal":[0,-1,0],"desde":"poste blanco del encuentro con la lavandería","dist_h":0.5,"muro":"Muro divisorio, cara hacia la cocina-comedor (bloque visto)","colocar":"Centro de la mira a 0.50 m del poste blanco del encuentro con la lavandería y a 1.50 m del piso alto."},"QR2":{"x":5.85,"y":1.3,"z":0.6,"normal":[-1,0,0],"desde":"poste blanco de la esquina del frente","dist_h":1.2,"muro":"Murete existente, cara hacia el pasillo (bloque visto)","colocar":"Centro de la mira a 1.20 m del poste blanco de la esquina del frente y a 0.60 m del piso alto (debajo del bloque nuevo)."}},"base_maqueta":{"cx":5.0,"cy":3.0,"z0":-2.4}}</script>
+
+<script type="module">
+/* ================================================================ datos y utilidades (sin 3D) */
+const D = JSON.parse(document.getElementById('datosRA').textContent);
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const n2 = v => Number(v).toFixed(2);
+const cm = v => { const c = Math.round(v * 1000) / 10; return (c > 0 ? '+' : c < 0 ? '−' : '') + Math.abs(c).toFixed(1) + ' cm'; };
+const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const fmtF = s => { if (!s) return ''; const [y, m, d] = s.split('-').map(Number); return `${d} ${MES[m - 1]}`; };
+const enIframe = (() => { try { return window.self !== window.top; } catch { return true; } })();
+const guardar = (k, v) => { try { localStorage.setItem('visorRA:' + k, JSON.stringify(v)); } catch { } };
+const leer = (k, def) => { try { const v = localStorage.getItem('visorRA:' + k); return v == null ? def : JSON.parse(v); } catch { return def; } };
+
+$('#tTitulo').textContent = D.proyecto;
+$('#tSub').textContent = `${D.subtitulo} · visor en sitio`;
+$('#tModelo').textContent = D.fuente;
+$('#tGen').textContent = D.generado;
+$('#tLeyenda').textContent = D.leyenda;
+
+/* --- orden de fases (estado de obra) --- */
+const ORDEN = D.fases.map(f => f.id);                 // F0…F7 (FR solo opción B)
+const IDX = Object.fromEntries(ORDEN.map((f, i) => [f, i + 1]));
+const NEST = ORDEN.length + 1;                       // 0 = antes … ORDEN.length = terminado
+const FASE = Object.fromEntries(D.fases.map(f => [f.id, f]));
+function nombreEstado(i) {
+  if (i <= 0) return ['Antes de la obra', 'Estado actual: lo rojo es lo que se demuele'];
+  const f = FASE[ORDEN[i - 1]];
+  const fecha = f.ini ? (f.ini === f.fin ? fmtF(f.ini) : `${fmtF(f.ini)} → ${fmtF(f.fin)}`) : 'solo opción B';
+  if (i === ORDEN.length) return ['Terminado', `${f.id} ${f.corto} · ${fecha}`];
+  return [`Hasta ${f.id} · ${f.corto}`, fecha];
+}
+
+/* --- capas --- */
+const CAPAS_DEF = [
+  ['dem', 'Lo que se demuele (rojo)', 'var(--dem)', true],
+  ['nuevo', 'Obra nueva', '#f0a35e', true],
+  ['ele', 'Puntos eléctricos', '#3866d6', true],
+  ['muebles', 'Muebles propuestos', '#b07d4f', true],
+  ['existente', 'Existente (muros y techo en la vista previa)', '#a9aaa4', true],
+  ['lineas', 'Líneas de lo existente (para calzar en obra)', '#38e1ff', true],
+  ['oclusion', 'Ocultar lo que queda detrás de los muros (obra)', '#6c7785', true],
+  ['qr', 'Puntos QR', '#121820', true],
+  ['techo', 'Zinc', '#b9c0c7', false],
+  ['opB', 'Repello de la recámara (opción B)', '#c4a46a', false],
+];
+const CAPAS = Object.fromEntries(CAPAS_DEF.map(c => [c[0], leer('capa:' + c[0], c[3])]));
+$('#capas').innerHTML = CAPAS_DEF.map(([k, txt, col]) => `<label><input type="checkbox" id="capa-${k}" data-k="${k}" ${CAPAS[k] ? 'checked' : ''}><span class="sw" style="--c:${col}"></span><span>${esc(txt)}</span></label>`).join('');
+
+/* --- estado de obra --- */
+let ESTADO = NEST - 1;
+const rango = $('#faseRango'); rango.max = String(NEST - 1); rango.value = String(ESTADO);
+$('#faseTicks').style.setProperty('--n', NEST);
+$('#faseTicks').innerHTML = ['Antes', ...ORDEN].map(t => `<span>${esc(t)}</span>`).join('');
+function pintarEstado() { const [a, b] = nombreEstado(ESTADO); $('#faseNom').textContent = a; $('#faseFecha').textContent = b; }
+pintarEstado();
+
+/* --- referencias QR --- */
+const REF = D.referencias;
+const REF_IDS = Object.keys(REF);
+const dRef = (() => { const p = REF[REF_IDS[0]], q = REF[REF_IDS[1]]; const h = Math.hypot(q.x - p.x, q.y - p.y); return { h, d: Math.hypot(h, q.z - p.z) }; })();
+$('#refs').innerHTML = REF_IDS.map(id => { const r = REF[id]; return `<div class="ref">
+  <div class="ref-cab"><span class="chip-id">${esc(id.replace('QR', 'QR '))}</span><b>${esc(r.muro)}</b></div>
+  <p>${esc(r.colocar)}</p>
+  <span class="mono muted">x ${n2(r.x)} · y ${n2(r.y)} · z ${n2(r.z)} m</span></div>`; }).join('')
+  + `<p class="muted" style="font-size:.84rem">Entre centros: <span class="mono">${n2(dRef.h)} m</span> en planta (se puede comprobar con cinta cuando caiga el muro largo).</p>`;
+
+/* ================================================================ hoja para imprimir */
+function qrSVG(texto) {
+  const { QRCode, Nivel } = window.QRVendor; const q = new QRCode(-1, Nivel.M); q.addData(texto); q.make();
+  const n = q.getModuleCount(), m = 4; let d = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += `M${c + m} ${r + m}h1v1h-1z`;
+  return `<svg viewBox="0 0 ${n + 2 * m} ${n + 2 * m}" shape-rendering="crispEdges" role="img" aria-label="Código QR"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
+}
+const MIRA_SVG = id => `<svg viewBox="-55 -55 110 110" aria-label="Mira de referencia ${esc(id)}">
+  <circle r="40" fill="none" stroke="#111" stroke-width="1.4"/><circle r="25" fill="none" stroke="#111" stroke-width=".5"/>
+  <circle r="5" fill="none" stroke="#111" stroke-width=".8"/><circle r="1.2" fill="#d03b3b"/>
+  <path d="M-52 0H-6M6 0H52M0 -52V-6M0 6V52" stroke="#111" stroke-width=".6"/>
+  <path d="M-40 0h4M36 0h4M0 -40v4M0 36v4" stroke="#111" stroke-width="2"/>
+  <text x="3" y="-44" font-size="4" font-family="IBM Plex Mono, monospace">Ø 80 mm</text></svg>`;
+function urlPorDefecto() {
+  const u = leer('url', '');
+  if (u) return u;
+  if (!enIframe && /^https:/.test(location.href)) return location.href.split('#')[0];
+  return '';
+}
+function pintarHojas() {
+  const url = $('#urlVisor').value.trim();
+  $('#hojas').innerHTML = REF_IDS.map(id => { const r = REF[id];
+    const qr = url ? qrSVG(url + '#' + id.toLowerCase()) : `<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#f1f3f6" stroke="#999" stroke-width=".1" stroke-dasharray=".4 .3"/><text x="5" y="5.3" text-anchor="middle" font-size=".9" fill="#555">Falta la dirección</text></svg>`;
+    return `<article class="carta">
+      <div class="carta-cab"><span class="id">${esc(id.replace('QR', 'QR '))}</span><div class="pr"><b>${esc(D.proyecto)}</b>Visor en sitio · punto de referencia</div></div>
+      <div class="carta-qr">${qr}<p><b>1.</b> Escanee con la cámara para abrir el visor.<br><b>2.</b> Toque «Obra a escala real».<br><b>3.</b> Apunte al <b>centro de la mira</b> y toque «Marcar ${esc(id.replace('QR', 'QR '))}».</p></div>
+      <div class="carta-mira">${MIRA_SVG(id)}</div>
+      <dl class="carta-datos">
+        <dt>Muro</dt><dd>${esc(r.muro)}</dd>
+        <dt>Colocar</dt><dd>${esc(r.colocar)}</dd>
+        <dt>Modelo</dt><dd>x ${n2(r.x)} · y ${n2(r.y)} · z ${n2(r.z)} m (z sobre piso alto)</dd>
+        <dt>Pegado</dt><dd>Plana, nivelada y firme (silicón o 4 tornillos). No moverla durante la obra. Entre centros QR 1–QR 2: ${n2(dRef.h)} m en planta.</dd>
+      </dl>
+      <p class="carta-pie">${esc(D.leyenda)}</p></article>`; }).join('');
+}
+$('#bHoja').addEventListener('click', () => {
+  $('#urlVisor').value = urlPorDefecto(); pintarHojas();
+  $('#hojaNota').textContent = enIframe
+    ? 'Aquí dentro de claude.ai no se puede imprimir: abra el visor desde su propia dirección (https) para imprimir. Escriba esa dirección arriba para que el QR la abra.'
+    : 'Imprima al 100 % (sin «ajustar a la página»). Solo importa la posición del centro de la mira.';
+  $('#hojaVista').hidden = false; $('#pagina').setAttribute('aria-hidden', 'true');
+});
+$('#urlVisor').addEventListener('input', () => { guardar('url', $('#urlVisor').value.trim()); pintarHojas(); });
+$('#bCerrarHoja').addEventListener('click', () => { $('#hojaVista').hidden = true; $('#pagina').removeAttribute('aria-hidden'); });
+$('#bImprimir').addEventListener('click', () => { try { window.print(); } catch { } });
+
+/* ================================================================ disponibilidad de la cámara (WebXR) */
+const RA = { ok: false };
+async function detectarRA() {
+  const pill = $('#raPill'), txt = $('#raTxt');
+  const poner = (c, p, t) => { pill.style.setProperty('--c', c); pill.textContent = p; txt.textContent = t; };
+  let ok = false, motivo = '';
+  if (!('xr' in navigator)) motivo = 'sinxr';
+  else if (!window.isSecureContext) motivo = 'http';
+  else { try { ok = await navigator.xr.isSessionSupported('immersive-ar'); if (!ok) motivo = 'nosoporta'; } catch (e) { motivo = 'bloqueado'; } }
+  RA.ok = ok;
+  if (ok) { poner('var(--good)', 'Cámara disponible', 'Elija cómo quiere verlo.'); $('#bMaqueta').disabled = false; $('#bObra').disabled = false; return; }
+  if (enIframe) poner('var(--warn)', 'No disponible aquí', 'Dentro de claude.ai el navegador no deja usar la cámara. Abra el visor desde su propia dirección (la del QR) en Chrome de la tablet.');
+  else if (motivo === 'http') poner('var(--warn)', 'Necesita https', 'La cámara solo funciona si la página se abre con https, no desde un archivo ni con http.');
+  else poner('var(--muted)', 'Sin realidad aumentada', 'Este equipo o navegador no la tiene. Use Chrome en la tablet Samsung (con ARCore). La vista previa sí funciona.');
+}
+detectarRA();
+
+/* ================================================================ motor 3D */
+let THREE, OrbitControls;
+try {
+  THREE = await import('three');
+  ({ OrbitControls } = await import('three/addons/controls/OrbitControls.js'));
+} catch (e) {
+  $('#falla3d').hidden = false; $('#bMaqueta').disabled = true; $('#bObra').disabled = true;
+  console.error(e);
+}
+if (THREE) { try { await document.fonts?.ready; } catch { } iniciar3D(); }
+
+function iniciar3D() {
+const visorEl = $('#visor');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+visorEl.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8f8a80, 1.9); scene.add(hemi);
+const sol = new THREE.DirectionalLight(0xfff4e2, 1.6); sol.position.set(-6, 14, 9); scene.add(sol);
+const sol2 = new THREE.DirectionalLight(0xffffff, 0.6); sol2.position.set(10, 6, -8); scene.add(sol2);
+
+/* jerarquía: raiz (pose en el mundo, y arriba) → giro (z del modelo → y) → centro (solo maqueta) → ajuste (ajuste fino) */
+const raiz = new THREE.Group(), giro = new THREE.Group(), centro = new THREE.Group(), ajuste = new THREE.Group();
+giro.rotation.x = -Math.PI / 2; ajuste.matrixAutoUpdate = false;
+scene.add(raiz); raiz.add(giro); giro.add(centro); centro.add(ajuste);
+const G = {}; for (const k of ['ctx', 'techo', 'terreno', 'lineas', 'oclu', 'nuevo', 'dem', 'muebles', 'ele', 'etq', 'qr', 'qrPrev']) { G[k] = new THREE.Group(); ajuste.add(G[k]); }
+
+/* ---------- materiales (mismos colores que el visor 5D) ---------- */
+const GRANO = { bloque: [0.07, 4.0], bloque_ex: [0.07, 4.0], viga: [0.06, 2.5], viga_ex: [0.06, 2.5], concreto: [0.06, 2.5], losa: [0.09, 1.4],
+  terreno: [0.16, 1.1], mortero: [0.07, 5], relleno: [0.11, 4], repello: [0.03, 4], repello_ex: [0.025, 4], acero_tubo: [0.02, 6], poste_ex: [0.02, 6] };
+const U_BLOQ = { value: new THREE.Vector3(1, 0, D.z_sala ?? -1.9) };
+const GLSL_RUIDO = `varying vec3 vWP;
+uniform vec2 uGrano;
+float h3_(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float vn_(vec3 x){ vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(h3_(i), h3_(i + vec3(1.0, 0.0, 0.0)), f.x), mix(h3_(i + vec3(0.0, 1.0, 0.0)), h3_(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+             mix(mix(h3_(i + vec3(0.0, 0.0, 1.0)), h3_(i + vec3(1.0, 0.0, 1.0)), f.x), mix(h3_(i + vec3(0.0, 1.0, 1.0)), h3_(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z); }
+`;
+/* juntas de bloque en coordenadas del modelo (hiladas de 0.20, bloques de 0.40 trabados) */
+const GLSL_BLOQUE = `
+ { vec3 nw_ = normalize(vNW);
+   if (abs(nw_.z) < 0.6) {
+     float s_ = abs(nw_.x) > abs(nw_.y) ? vWP.y : vWP.x;
+     float zb_ = vWP.z < -0.01 ? uBloq.z : uBloq.y;
+     float r_ = (vWP.z - zb_) / 0.20; float fila_ = floor(r_);
+     float c_ = (s_ + mod(fila_, 2.0) * 0.20) / 0.40; float col_ = floor(c_);
+     float dz_ = abs(fract(r_ + 0.5) - 0.5) * 0.20, ds_ = abs(fract(c_ + 0.5) - 0.5) * 0.40, w_ = 0.005;
+     float az_ = fwidth(vWP.z) + 1e-5, as_ = fwidth(s_) + 1e-5;
+     float jz_ = 1.0 - smoothstep(w_ - 0.5 * az_, w_ + 0.5 * az_, dz_);
+     float js_ = 1.0 - smoothstep(w_ - 0.5 * as_, w_ + 0.5 * as_, ds_);
+     jz_ = mix(2.0 * w_ / 0.20, jz_, clamp(1.5 * w_ / az_, 0.0, 1.0)); js_ = mix(2.0 * w_ / 0.40, js_, clamp(1.5 * w_ / as_, 0.0, 1.0));
+     float t_ = h3_(vec3(col_ + 0.37, fila_ + 0.71, step(0.5, abs(nw_.x)) + 2.0 * step(0.0, nw_.x + nw_.y)));
+     diffuseColor.rgb *= (1.0 + 0.08 * (t_ - 0.5)) * (1.0 - 0.32 * max(jz_, js_));
+   } }`;
+/* vWP y vNW en coordenadas del MODELO (no del mundo): las hiladas no dependen de dónde se ancle la casa */
+const U_MODELO = { value: new THREE.Matrix4() };
+function conPoche(m, grano = null, bloque = false) {
+  m.side = THREE.DoubleSide;
+  m.onBeforeCompile = sh => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <dithering_fragment>', '#include <dithering_fragment>\n if(!gl_FrontFacing){ gl_FragColor = vec4(gl_FragColor.rgb*0.55, gl_FragColor.a); }');
+    if (grano) {
+      sh.uniforms.uGrano = { value: new THREE.Vector2(grano[0], grano[1]) }; sh.uniforms.uModeloInv = U_MODELO;
+      if (bloque) sh.uniforms.uBloq = U_BLOQ;
+      sh.vertexShader = 'varying vec3 vWP;\nuniform mat4 uModeloInv;\n' + (bloque ? 'varying vec3 vNW;\n' : '') + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n vec4 wp_ = modelMatrix * vec4(transformed, 1.0); vWP = (uModeloInv * wp_).xyz;' + (bloque ? '\n vNW = mat3(uModeloInv) * (mat3(modelMatrix) * objectNormal);' : ''));
+      sh.fragmentShader = GLSL_RUIDO + (bloque ? 'varying vec3 vNW;\nuniform vec3 uBloq;\n' : '') + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+ { vec3 q_ = vWP * uGrano.y; float n_ = 0.55 * vn_(q_) + 0.45 * vn_(q_ * 4.3 + 7.1); diffuseColor.rgb *= 1.0 + uGrano.x * (n_ - 0.5) * 2.0; }` + (bloque ? GLSL_BLOQUE : ''));
+    }
+  };
+  m.customProgramCacheKey = () => 'poche' + (grano ? '-g' : '') + (bloque ? '-b' : '');
+  return m;
+}
+const CTX_COL = { fascia: 0xe9e6df, bloque_ex: 0xa9aaa4, viga_ex: 0x9a978f, acero_ex: 0x8e969d, poste_ex: 0xe6e8e6, varilla_ex: 0x6e4331, repello_ex: 0xe8b9be,
+  repello_nat: 0xc9c5bc, zinc: 0xb9c0c7, vidrio: 0x8fbad8, losa: 0xa3a098, terreno: 0xa98d6a, celosia_ex: 0xbdb8ae };
+const RCOL = { bloque: '#b4b5af', viga: '#9a978f', concreto: '#b3afa6', acero: '#7d4a36', acero_tubo: '#e9ebea', mortero: '#a9a59c', relleno: '#a8a59d', repello_ex: '#e8b9be',
+  celosia: '#d0cbc1', puerta_hoja: '#9a6a42', puerta_marco: '#6f4a2c', cajilla: '#9aa3ab', aparato: '#f2f2ee', luminaria: '#fff3d6', panel_ex: '#b6bcc2', tubo_elec: '#9aa0a6', repello: '#d6d1c6' };
+const COL_MUEBLE = { madera: '#b07d4f', madera_osc: '#7a5232', madera_clara: '#d9c4a0', gabinete: '#e4d9c6', puerta_mueble: '#efe7d7', meson: '#6e6a65', zocalo: '#4a4642',
+  tarja: '#a9b1b8', tarja_fondo: '#7f8890', metal: '#b9bfc5', blanco: '#eceef0', inox: '#d3d7db', negro: '#26282b', quemador: '#4a4d52', vidrio_oscuro: '#3a4653',
+  tela: '#5a7290', tela_claro: '#7189a5', colchon: '#f3f0e8', cobija: '#9fb6ca', almohada: '#fbfaf5', pantalla: '#f1e4c2', concreto: '#b7b3aa', concreto_claro: '#cdc9c0' };
+const PAQ = Object.fromEntries(D.paquetes.map(p => [p.id, p]));
+
+function texCelosia(rep) {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#000';
+  g.beginPath(); g.moveTo(32, 9); g.lineTo(55, 32); g.lineTo(32, 55); g.lineTo(9, 32); g.closePath(); g.fill();
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(32, 32, 7, 0, Math.PI * 2); g.fill();
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...(rep || [4, 4])); return t;
+}
+
+/* ---------- geometría (cajas con tope/fondo inclinado, cilindros, esferas; misma convención que el visor 5D) ---------- */
+function geomCaja(gi) {
+  const [x0, x1, y0, y1, z0, z1] = gi.b;
+  if (!gi.tz && !gi.bz) { const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, Math.max(z1 - z0, 1e-4)); g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z1 - z0) / 2); return g; }
+  const zb = gi.bz ? [gi.bz[0] - z0, gi.bz[1] - z0] : [0, 0], zt = gi.tz ? [gi.tz[0] - z0, gi.tz[1] - z0] : [z1 - z0, z1 - z0];
+  const V = [[x0, y0, zb[0]], [x1, y0, zb[1]], [x1, y1, zb[1]], [x0, y1, zb[0]], [x0, y0, zt[0]], [x1, y0, zt[1]], [x1, y1, zt[1]], [x0, y1, zt[0]]];
+  const F = [[0, 1, 5], [0, 5, 4], [1, 2, 6], [1, 6, 5], [2, 3, 7], [2, 7, 6], [3, 0, 4], [3, 4, 7], [0, 2, 1], [0, 3, 2], [4, 5, 6], [4, 6, 7]];
+  const pos = new Float32Array(F.length * 9); F.forEach((tri, k) => tri.forEach((vi, j) => pos.set(V[vi], k * 9 + j * 3)));
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.computeVertexNormals(); return g;
+}
+const ABRE = 0.85;   // puertas abiertas al 85 % para ver a través del vano
+/* devuelve la geometría ya colocada en coordenadas del modelo */
+function geomPieza(gi) {
+  if (gi.cyl) {
+    const [x0, y0, z0, x1, y1, z1] = gi.cyl; const a = new THREE.Vector3(x0, y0, z0), b = new THREE.Vector3(x1, y1, z1); const len = Math.max(a.distanceTo(b), 1e-4);
+    const g = new THREE.CylinderGeometry(gi.r, gi.r, len, 8, 1); g.translate(0, len / 2, 0);
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+    g.applyMatrix4(new THREE.Matrix4().compose(a, q, new THREE.Vector3(1, 1, 1))); return { g, cyl: true };
+  }
+  if (gi.sph) { const g = new THREE.SphereGeometry(gi.r, 14, 10); g.translate(...gi.sph); return { g }; }
+  const g = geomCaja(gi);
+  g.translate(0, 0, gi.b[4]);
+  if (gi.pv) { g.translate(-gi.pv[0], -gi.pv[1], 0); g.rotateZ((gi.a1 || 90) * Math.PI / 180 * ABRE); g.translate(gi.pv[0], gi.pv[1], 0); }
+  return { g };
+}
+/* une geometrías del mismo material en una sola (menos llamadas de dibujo: importa en la tablet) */
+function unir(geos) {
+  const ps = [], ns = [], us = [];
+  for (const g0 of geos) { const g = g0.index ? g0.toNonIndexed() : g0; if (!g.attributes.normal) g.computeVertexNormals();
+    ps.push(g.attributes.position.array); ns.push(g.attributes.normal.array); us.push(g.attributes.uv ? g.attributes.uv.array : new Float32Array(g.attributes.position.count * 2)); }
+  const cat = arrs => { const n = arrs.reduce((s, a) => s + a.length, 0), o = new Float32Array(n); let k = 0; for (const a of arrs) { o.set(a, k); k += a.length; } return o; };
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(cat(ps), 3)); g.setAttribute('normal', new THREE.BufferAttribute(cat(ns), 3)); g.setAttribute('uv', new THREE.BufferAttribute(cat(us), 2)); return g;
+}
+function unirLineas(geos) { const arrs = geos.map(g => g.attributes.position.array); const n = arrs.reduce((s, a) => s + a.length, 0), o = new Float32Array(n); let k = 0; for (const a of arrs) { o.set(a, k); k += a.length; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(o, 3)); return g; }
+
+/* ---------- materiales de líneas y oclusión ---------- */
+const LM = {
+  ctx: new THREE.LineBasicMaterial({ color: 0x26303b, transparent: true, opacity: 0.22 }),
+  nuevo: new THREE.LineBasicMaterial({ color: 0x26303b, transparent: true, opacity: 0.3 }),
+  dem: new THREE.LineBasicMaterial({ color: 0xd64541, transparent: true, opacity: 0.9 }),
+  mueble: new THREE.LineBasicMaterial({ color: 0x26303b, transparent: true, opacity: 0.16 }),
+};
+const MAT_OCLU = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2, side: THREE.DoubleSide });
+const MAT_DEM = new THREE.MeshLambertMaterial({ color: 0xd64541, transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide });
+
+/* ---------- contexto existente: sólidos, líneas y oclusores ---------- */
+const SIN_BORDE = new Set(['zinc', 'terreno', 'vidrio']);
+const NO_OCLUYE = new Set(['zinc', 'vidrio', 'celosia_ex', 'varilla_ex', 'repello_ex', 'repello_nat']);
+{
+  const porK = {}, lineas = [], oclu = [], techo = {}, terreno = [];
+  for (const c of D.contexto) for (const gi of c.piezas) {
+    const { g } = geomPieza(gi);
+    if (gi.k === 'celosia_ex') { const m = conPoche(new THREE.MeshLambertMaterial({ color: CTX_COL.celosia_ex, alphaMap: texCelosia(gi.rep), alphaTest: 0.5 })); G.ctx.add(new THREE.Mesh(g, m)); }
+    else if (c.grupo === 'techo') (techo[gi.k] ??= []).push(g);
+    else if (c.grupo === 'terreno') terreno.push([gi.k, g]);
+    else (porK[gi.k] ??= []).push(g);
+    if (!SIN_BORDE.has(gi.k) && c.grupo !== 'terreno') lineas.push(new THREE.EdgesGeometry(g, 25));
+    if (!NO_OCLUYE.has(gi.k)) oclu.push(g);
+  }
+  const matCtx = k => { const m = new THREE.MeshLambertMaterial({ color: CTX_COL[k] ?? CTX_COL.bloque_ex }); return conPoche(m, GRANO[k] || null, k === 'bloque_ex'); };
+  for (const [k, gs] of Object.entries(porK)) G.ctx.add(new THREE.Mesh(unir(gs), k === 'vidrio' ? new THREE.MeshLambertMaterial({ color: CTX_COL.vidrio, transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide }) : matCtx(k)));
+  for (const [k, gs] of Object.entries(techo)) G.techo.add(new THREE.Mesh(unir(gs), k === 'zinc' ? new THREE.MeshLambertMaterial({ color: CTX_COL.zinc, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide }) : matCtx(k)));
+  const porT = {}; for (const [k, g] of terreno) (porT[k] ??= []).push(g);
+  for (const [k, gs] of Object.entries(porT)) G.terreno.add(new THREE.Mesh(unir(gs), matCtx(k)));
+  G.lineas.add(new THREE.LineSegments(unirLineas(lineas), LM.ctx));
+  const mo = new THREE.Mesh(unir(oclu), MAT_OCLU); mo.renderOrder = -10; G.oclu.add(mo);
+}
+
+/* ---------- componentes de la obra (una malla por pieza: cada una aparece en su fase) ---------- */
+const PIEZAS = [];   // {mesh, edges, e, f, ele, mat}
+const MATS = {};
+const colorDe = (e, k) => e.paquete === 'ELE' && (k === 'aparato' || k === 'luminaria') ? RCOL[k] : (RCOL[k] || PAQ[e.paquete].color);
+function matPieza(e, gi) {
+  if (e.dem) return MAT_DEM;
+  if (gi.k === 'celosia') { const m = conPoche(new THREE.MeshLambertMaterial({ color: RCOL.celosia, alphaMap: texCelosia(gi.rep), alphaTest: 0.5 })); m.userData = { real: RCOL.celosia, paq: PAQ[e.paquete].color }; return m; }
+  const key = gi.k + '|' + e.paquete;
+  return MATS[key] ??= (() => { const m = conPoche(new THREE.MeshLambertMaterial({ color: colorDe(e, gi.k) }), GRANO[gi.k] || null, gi.k === 'bloque');
+    m.userData = { real: colorDe(e, gi.k), paq: PAQ[e.paquete].color }; return m; })();
+}
+for (const e of D.elementos) for (const gi of e.geo) {
+  const { g, cyl } = geomPieza(gi); const mat = matPieza(e, gi);
+  const mesh = new THREE.Mesh(g, mat); const edges = cyl ? null : new THREE.LineSegments(new THREE.EdgesGeometry(g, 25), e.dem ? LM.dem : LM.nuevo);
+  const destino = e.dem ? G.dem : e.paquete === 'ELE' ? G.ele : G.nuevo;
+  destino.add(mesh); if (edges) destino.add(edges);
+  PIEZAS.push({ mesh, edges, e, f: gi.f || e.fases[0], ele: e.paquete === 'ELE', k: gi.k, mat });
+}
+const MATS_NUEVOS = [...new Set(PIEZAS.filter(p => !p.e.dem).map(p => p.mat))];
+
+/* ---------- etiquetas (sprites: se ven igual en la vista previa y en la cámara) ---------- */
+function sprite(txt, { alto = 0.07, fondo = 'rgba(18,24,32,.88)', tinta = '#ffffff', fuente = '600 40px "IBM Plex Mono", monospace' } = {}) {
+  const c = document.createElement('canvas'); const g = c.getContext('2d'); g.font = fuente;
+  const w = Math.ceil(g.measureText(txt).width) + 28; c.width = w; c.height = 60; g.font = fuente;
+  g.fillStyle = fondo; const r = 10; g.beginPath(); g.roundRect ? g.roundRect(0, 0, w, 60, r) : g.rect(0, 0, w, 60); g.fill();
+  g.fillStyle = tinta; g.textBaseline = 'middle'; g.fillText(txt, 14, 32);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false }));
+  s.scale.set(alto * w / 60, alto, 1); s.renderOrder = 5; return s;
+}
+const ETQ = [];   // {s, piezas}
+for (const e of D.elementos) {
+  if (e.paquete !== 'ELE' || !e.geo.length) continue;
+  const ps = PIEZAS.filter(p => p.e === e); const bb = new THREE.Box3(); ps.forEach(p => { p.mesh.geometry.computeBoundingBox(); bb.union(p.mesh.geometry.boundingBox); });
+  const cpt = bb.getCenter(new THREE.Vector3());
+  const ult = ps[ps.length - 1], pri = ps[0];
+  const cu = ult.mesh.geometry.boundingBox.getCenter(new THREE.Vector3()), cp = pri.mesh.geometry.boundingBox.getCenter(new THREE.Vector3());
+  const fuera = cu.clone().sub(cp); fuera.z = 0; if (fuera.lengthSq() > 1e-8) fuera.normalize().multiplyScalar(0.05);
+  const s = sprite(e.id); const esLuz = ult.k === 'luminaria' && !e.id.startsWith('L4');
+  s.position.copy(cpt).add(fuera).add(new THREE.Vector3(0, 0, esLuz ? -0.13 : 0.11));
+  G.etq.add(s); ETQ.push({ s, ps });
+}
+
+/* ---------- mobiliario propuesto ---------- */
+{
+  const porK = {}, lineas = [];
+  for (const mu of D.muebles) for (const gi of mu.piezas) { const { g, cyl } = geomPieza(gi); (porK[gi.k] ??= []).push(g); if (!cyl) lineas.push(new THREE.EdgesGeometry(g, 25)); }
+  for (const [k, gs] of Object.entries(porK)) G.muebles.add(new THREE.Mesh(unir(gs), conPoche(new THREE.MeshLambertMaterial({ color: COL_MUEBLE[k] || '#d4d4d4' }))));
+  G.muebles.add(new THREE.LineSegments(unirLineas(lineas), LM.mueble));
+}
+
+/* ---------- marcas de los puntos QR (mira de 80 mm, igual a la hoja impresa) ---------- */
+function texMira(id) {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  const R = 256 / 0.26 * 0.04;   // 80 mm de diámetro en una placa de 0.26 m
+  g.strokeStyle = '#38e1ff'; g.lineWidth = 5; g.beginPath(); g.arc(128, 128, R, 0, Math.PI * 2); g.stroke();
+  g.lineWidth = 3; g.beginPath(); g.moveTo(128 - R * 1.3, 128); g.lineTo(128 + R * 1.3, 128); g.moveTo(128, 128 - R * 1.3); g.lineTo(128, 128 + R * 1.3); g.stroke();
+  g.fillStyle = '#d03b3b'; g.beginPath(); g.arc(128, 128, 5, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#38e1ff'; g.font = '700 30px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.fillText(id.replace('QR', 'QR '), 128, 34);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const PUNTO_REF = {};
+for (const id of REF_IDS) {
+  const r = REF[id]; const n = new THREE.Vector3(...r.normal).normalize(); const p = new THREE.Vector3(r.x, r.y, r.z); PUNTO_REF[id] = p;
+  const up = new THREE.Vector3(0, 0, 1), xa = up.clone().cross(n).normalize(), ya = n.clone().cross(xa).normalize();
+  const placa = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.26), new THREE.MeshBasicMaterial({ map: texMira(id), transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+  placa.matrixAutoUpdate = false; placa.matrix.makeBasis(xa, ya, n).setPosition(p.clone().addScaledVector(n, 0.004)); placa.renderOrder = 6; G.qr.add(placa);
+  const s = sprite(id.replace('QR', 'QR '), { alto: 0.32, fondo: 'rgba(28,79,156,.95)', fuente: '700 44px "Barlow Condensed", sans-serif' });
+  s.position.copy(p).addScaledVector(n, 0.25).add(new THREE.Vector3(0, 0, 0.45)); G.qrPrev.add(s);
+}
+{ /* línea entre puntos y su distancia (solo vista previa) */
+  const [a, b] = REF_IDS.map(id => PUNTO_REF[id]);
+  const lg = new THREE.BufferGeometry().setFromPoints([a, b]); const ln = new THREE.Line(lg, new THREE.LineDashedMaterial({ color: 0x1c4f9c, dashSize: 0.12, gapSize: 0.08, depthTest: false, transparent: true }));
+  ln.computeLineDistances(); ln.renderOrder = 7; G.qrPrev.add(ln);
+  const s = sprite(`${n2(dRef.h)} m`, { alto: 0.26, fondo: 'rgba(255,255,255,.92)', tinta: '#1c4f9c', fuente: '600 40px "IBM Plex Mono", monospace' });
+  s.position.copy(a).add(b).multiplyScalar(0.5).add(new THREE.Vector3(0, 0, 0.35)); G.qrPrev.add(s);
+}
+
+/* ---------- retícula de la cámara ---------- */
+const reticula = new THREE.Group(); reticula.matrixAutoUpdate = false; reticula.visible = false; scene.add(reticula);
+{ const anillo = new THREE.Mesh(new THREE.RingGeometry(0.045, 0.055, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x38e1ff, depthTest: false, transparent: true }));
+  const punto = new THREE.Mesh(new THREE.CircleGeometry(0.006, 16).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xd03b3b, depthTest: false, transparent: true }));
+  anillo.renderOrder = punto.renderOrder = 20; reticula.add(anillo, punto); }
+
+/* ================================================================ visibilidad según modo, capas y estado de obra */
+let MODO = 'previa';   // previa | maqueta | obra
+let COLOR = leer('color', 'real');
+let TRANSP = false;
+function aplicar() {
+  const obra = MODO === 'obra', fin = ESTADO >= NEST - 1;
+  G.ctx.visible = !obra && CAPAS.existente;
+  G.terreno.visible = !obra && CAPAS.existente;
+  G.techo.visible = !obra && CAPAS.techo && CAPAS.existente;
+  G.lineas.visible = obra ? CAPAS.lineas : CAPAS.existente;
+  LM.ctx.color.set(obra ? 0x38e1ff : 0x26303b); LM.ctx.opacity = obra ? 0.95 : 0.22;
+  G.oclu.visible = obra && CAPAS.oclusion;
+  G.muebles.visible = CAPAS.muebles && fin;
+  G.qr.visible = CAPAS.qr; G.qrPrev.visible = CAPAS.qr && MODO === 'previa';
+  for (const p of PIEZAS) {
+    let v;
+    if (p.e.solo_B && !CAPAS.opB) v = false;
+    else if (p.e.dem) v = CAPAS.dem && (obra || ESTADO < IDX[p.f]);
+    else v = (p.ele ? CAPAS.ele : CAPAS.nuevo) && IDX[p.f] <= ESTADO;
+    p.mesh.visible = v; if (p.edges) p.edges.visible = v;
+  }
+  for (const t of ETQ) t.s.visible = MODO !== 'maqueta' && t.ps.some(p => p.mesh.visible);
+  for (const m of MATS_NUEVOS) { if (m.userData?.real) m.color.set(COLOR === 'paq' ? m.userData.paq : m.userData.real);
+    const tr = obra && TRANSP; if (m.transparent !== tr) { m.transparent = tr; m.opacity = tr ? 0.55 : 1; m.depthWrite = !tr; m.needsUpdate = true; } }
+  pedir();
+}
+
+/* ================================================================ vista previa (órbita) */
+const cam = new THREE.PerspectiveCamera(42, 1, 0.03, 200);
+const ctl = new OrbitControls(cam, renderer.domElement); ctl.enableDamping = true; ctl.dampingFactor = 0.12; ctl.maxPolarAngle = Math.PI * 0.495;
+const OBJ = new THREE.Vector3(4.9, 0.4, -4.0);
+function vista(tipo) {
+  if (tipo === 'planta') { cam.position.set(OBJ.x, 17, OBJ.z + 0.01); } else { cam.position.set(-1.2, 7.2, 9.5); }
+  ctl.target.copy(OBJ); ctl.update(); pedir();
+  $('#bVista3d').setAttribute('aria-pressed', String(tipo !== 'planta')); $('#bVistaPlanta').setAttribute('aria-pressed', String(tipo === 'planta'));
+}
+function tam() { const w = Math.max(visorEl.clientWidth, 10), h = Math.max(visorEl.clientHeight, 10); renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); pedir(); }
+new ResizeObserver(() => { if (!XR) tam(); }).observe(visorEl);
+const fondoPrevia = () => new THREE.Color(css('--scene') || '#e4e8ec');
+scene.background = fondoPrevia();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (!XR) { scene.background = fondoPrevia(); pedir(); } });
+new MutationObserver(() => { if (!XR) { scene.background = fondoPrevia(); pedir(); } }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+let SUCIO = true; function pedir() { SUCIO = true; }
+ctl.addEventListener('change', pedir);
+$('#bVista3d').addEventListener('click', () => vista('3d'));
+$('#bVistaPlanta').addEventListener('click', () => vista('planta'));
+
+/* ================================================================ realidad aumentada (WebXR) */
+let XR = null;
+const xrEl = $('#xr'), xrPanel = $('#xrPanel'), xrEstado = $('#xrEstado'), miraEl = $('#mira');
+const REF_M = REF_IDS.map(id => [REF[id].x, REF[id].y, REF[id].z]);
+/* pura: alinea el modelo con 2 puntos medidos. Modelo (x, y, z arriba) → mundo XR (y arriba): g = (x, z, −y), luego giro θ en y y traslado T */
+function resolverCalibracion(m1, m2, w1, w2) {
+  const g = m => [m[0], m[2], -m[1]]; const g1 = g(m1), g2 = g(m2);
+  const ang = v => Math.atan2(-v[2], v[0]);
+  const dg = [g2[0] - g1[0], 0, g2[2] - g1[2]], dw = [w2[0] - w1[0], 0, w2[2] - w1[2]];
+  const th = ang(dw) - ang(dg), c = Math.cos(th), s = Math.sin(th);
+  const rot = v => [v[0] * c + v[2] * s, v[1], -v[0] * s + v[2] * c];
+  const r1 = rot(g1), r2 = rot(g2);
+  const T = [0, 1, 2].map(i => ((w1[i] - r1[i]) + (w2[i] - r2[i])) / 2);
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const hMed = Math.hypot(dw[0], dw[2]), hNom = Math.hypot(dg[0], dg[2]);
+  return { th, T, dMed: dist(w1, w2), dNom: dist(m1, m2), hMed, hNom, errH: hMed - hNom, errV: (w2[1] - w1[1]) - (m2[2] - m1[2]) };
+}
+window.__resolverCalibracion = resolverCalibracion;   // para pruebas
+
+function estado(html) { if (XR && XR._est !== html) { XR._est = html; xrEstado.innerHTML = html; } }
+const BOTON = (id, txt, cls = 'xb', extra = '') => `<button type="button" class="${cls}" id="${id}" ${extra}>${txt}</button>`;
+
+function controlesComunes() {
+  const fases = ['Antes', ...ORDEN.map(f => f === ORDEN[ORDEN.length - 1] ? 'Terminado' : f)];
+  return `<div class="xr-fases" role="group" aria-label="Estado de obra">${fases.map((t, i) => `<button type="button" class="xb" data-est="${i}" aria-pressed="${i === ESTADO}">${esc(t)}</button>`).join('')}</div>
+  <div class="xr-fila">${[['dem', 'Demoler'], ['nuevo', 'Nuevo'], ['ele', 'Eléctrico'], ['muebles', 'Muebles'], ...(MODO === 'obra' ? [['lineas', 'Líneas existente'], ['qr', 'QR']] : [['techo', 'Zinc'], ['existente', 'Existente']])]
+    .map(([k, t]) => `<button type="button" class="xb" data-capa="${k}" aria-pressed="${!!CAPAS[k]}">${t}</button>`).join('')}
+    ${MODO === 'obra' ? `<button type="button" class="xb" id="xTransp" aria-pressed="${TRANSP}">Ver a través</button>` : ''}</div>`;
+}
+function panel() {
+  if (!XR) return; const P = XR.paso; let h = '';
+  if (MODO === 'maqueta') {
+    if (!XR.colocado) h = `<div class="xr-paso">Coloque la maqueta</div><div class="xr-sub">Apunte a una mesa o al piso hasta ver la retícula y toque Colocar.</div>
+      <div class="xr-fila">${BOTON('xColocar', 'Colocar aquí', 'xb-pri', XR.hit ? '' : 'disabled')}${escalaBtns()}</div>`;
+    else h = `${controlesComunes()}<div class="xr-fila">${BOTON('xGirarI', '⟲ Girar')}${BOTON('xGirarD', 'Girar ⟳')}${escalaBtns()}${BOTON('xMover', 'Mover')}</div>
+      <div class="xr-sub">También puede girarla arrastrando el dedo sobre la imagen.</div>`;
+  } else if (P === 'qr1' || P === 'qr2') {
+    const id = P === 'qr1' ? REF_IDS[0] : REF_IDS[1], r = REF[id];
+    h = `<div class="xr-paso">Paso ${P === 'qr1' ? 1 : 2} de 2 · ${esc(id.replace('QR', 'QR '))}</div>
+      <div class="xr-sub">${esc(r.muro)}. Apunte la mira al centro de la mira impresa y toque Marcar, sin moverse por un segundo.</div>
+      <div class="xr-fila">${BOTON('xMarcar', XR.muestreo ? 'Midiendo…' : 'Marcar ' + esc(id.replace('QR', 'QR ')), 'xb-pri', XR.hit && !XR.muestreo ? '' : 'disabled')}
+      ${P === 'qr2' ? BOTON('xVolver1', 'Repetir QR 1') : ''}</div>`;
+  } else if (P === 'revisar') {
+    const r = XR.res, e = Math.max(Math.abs(r.errH), Math.abs(r.errV));
+    const [c, t] = e <= 0.03 ? ['#0ca30c', 'Bien'] : e <= 0.06 ? ['#fab219', 'Aceptable: revise las líneas'] : ['#d03b3b', 'Revisar: repita la medición'];
+    h = `<div class="xr-fila"><span class="xr-pill" style="--c:${c}">${t}</span><span class="xr-sub">Diferencia entre lo medido y el modelo</span></div>
+      <div class="xr-res"><div><span>Distancia QR 1–QR 2 (planta)</span><b>${cm(r.errH)}</b><span>medida ${n2(r.hMed)} m · modelo ${n2(r.hNom)} m</span></div>
+      <div><span>Altura entre hojas</span><b>${cm(r.errV)}</b><span>${e > 0.06 ? 'Verifique la altura de cada hoja' : 'del piso a cada centro'}</span></div>
+      <div><span>Si no calza</span><b style="font-size:1rem">Hojas, mira o levantamiento</b><span>hoja movida, toque fuera del centro o medida del modelo</span></div></div>
+      <div class="xr-fila">${BOTON('xAceptar', 'Ver el diseño', 'xb-pri')}${BOTON('xRepetir', 'Repetir las dos')}</div>`;
+  } else if (P === 'ver') {
+    const a = XR.aj;
+    h = `${controlesComunes()}<div class="xr-fila">${BOTON('xAjuste', 'Ajuste fino', 'xb', `aria-pressed="${!!XR.verAjuste}"`)}${BOTON('xRecal', 'Volver a marcar')}
+      <span class="xr-sub mono">x ${cm(a.x)} · y ${cm(a.y)} · z ${cm(a.z)} · giro ${(a.g * 180 / Math.PI).toFixed(2)}°</span></div>
+      ${XR.verAjuste ? `<div class="xr-ajuste">
+        ${BOTON('aj-x-', '← Hacia los baños')}${BOTON('aj-x+', 'Hacia la sala →')}${BOTON('aj-y-', 'Hacia el frente')}${BOTON('aj-y+', 'Hacia el fondo')}
+        ${BOTON('aj-z+', 'Subir')}${BOTON('aj-z-', 'Bajar')}${BOTON('aj-g+', '⟲ Girar')}${BOTON('aj-g-', 'Girar ⟳')}</div>
+        <div class="xr-fila"><span class="xr-sub">Paso</span>${['fino', 'grueso'].map(t => `<button type="button" class="xb" data-paso="${t}" aria-pressed="${XR.pasoAj === t}">${t === 'fino' ? '1 cm · 0.25°' : '5 cm · 1°'}</button>`).join('')}${BOTON('aj-0', 'Quitar ajuste')}</div>` : ''}`;
+  } else h = `<div class="xr-sub">Iniciando…</div>`;
+  xrPanel.innerHTML = h;
+}
+const ESCALAS = [[100, '1:100'], [50, '1:50'], [25, '1:25']];
+function escalaBtns() { return ESCALAS.map(([e, t]) => `<button type="button" class="xb" data-esc="${e}" aria-pressed="${XR.esc === e}">${t}</button>`).join(''); }
+
+/* matriz del ajuste fino: traslado en ejes del modelo y giro alrededor del punto medio de las dos referencias */
+const PIVOTE = new THREE.Vector3(...REF_M[0]).add(new THREE.Vector3(...REF_M[1])).multiplyScalar(0.5);
+function aplicarAjuste() {
+  const a = XR?.aj || { x: 0, y: 0, z: 0, g: 0 };
+  ajuste.matrix.makeTranslation(a.x + PIVOTE.x, a.y + PIVOTE.y, a.z).multiply(new THREE.Matrix4().makeRotationZ(a.g)).multiply(new THREE.Matrix4().makeTranslation(-PIVOTE.x, -PIVOTE.y, 0));
+  ajuste.matrixWorldNeedsUpdate = true;
+}
+
+xrPanel.addEventListener('click', ev => {
+  const b = ev.target.closest('button'); if (!b || !XR) return;
+  if (b.dataset.est != null) { ESTADO = +b.dataset.est; rango.value = String(ESTADO); pintarEstado(); aplicar(); panel(); return; }
+  if (b.dataset.capa) { const k = b.dataset.capa; CAPAS[k] = !CAPAS[k]; const cb = $('#capa-' + k); if (cb) cb.checked = CAPAS[k]; guardar('capa:' + k, CAPAS[k]); aplicar(); panel(); return; }
+  if (b.dataset.esc) { XR.esc = +b.dataset.esc; colocarEscala(); panel(); return; }
+  if (b.dataset.paso) { XR.pasoAj = b.dataset.paso; panel(); return; }
+  const id = b.id;
+  if (id === 'xColocar' && XR.hit) colocarMaqueta();
+  else if (id === 'xMover') { XR.colocado = false; raiz.visible = false; panel(); }
+  else if (id === 'xGirarI' || id === 'xGirarD') { XR.rotMaq += (id === 'xGirarI' ? 1 : -1) * Math.PI / 12; raiz.rotation.y = XR.rotMaq; }
+  else if (id === 'xMarcar' && XR.hit && !XR.muestreo) { XR.muestreo = { id: XR.paso, pts: [], t0: performance.now() }; panel(); }
+  else if (id === 'xVolver1') { XR.paso = 'qr1'; delete XR.med.qr1; panel(); }
+  else if (id === 'xRepetir' || id === 'xRecal') iniciarCalibracion();
+  else if (id === 'xAceptar') { XR.paso = 'ver'; raiz.visible = true; XR.pedirAncla = true; miraEl.hidden = true; reticula.visible = false; aplicar(); panel(); }
+  else if (id === 'xAjuste') { XR.verAjuste = !XR.verAjuste; panel(); }
+  else if (id === 'xTransp') { TRANSP = !TRANSP; aplicar(); panel(); }
+  else if (id.startsWith('aj-')) {
+    const f = XR.pasoAj === 'grueso', d = f ? 0.05 : 0.01, dg = (f ? 1 : 0.25) * Math.PI / 180, a = XR.aj;
+    if (id === 'aj-0') Object.assign(a, { x: 0, y: 0, z: 0, g: 0 });
+    else { const eje = id[3], sg = id[4] === '+' ? 1 : -1; if (eje === 'g') a.g += sg * dg; else a[eje] += sg * d; }
+    aplicarAjuste(); panel();
+  }
+});
+/* en la cámara los toques sobre la interfaz no cuentan como «select» de la escena */
+xrEl.addEventListener('beforexrselect', ev => ev.preventDefault());
+/* maqueta: arrastrar sobre la imagen la gira */
+let arrastre = null;
+xrEl.addEventListener('pointerdown', ev => { if (MODO === 'maqueta' && XR?.colocado && !ev.target.closest('button,.xr-panel,.xr-top')) arrastre = { x: ev.clientX, r: XR.rotMaq }; });
+xrEl.addEventListener('pointermove', ev => { if (arrastre) { XR.rotMaq = arrastre.r + (ev.clientX - arrastre.x) * 0.008; raiz.rotation.y = XR.rotMaq; } });
+const finArrastre = () => { arrastre = null; };
+xrEl.addEventListener('pointerup', finArrastre); xrEl.addEventListener('pointercancel', finArrastre);
+$('#xrSalir').addEventListener('click', () => XR?.session.end());
+
+function colocarEscala() {
+  const s = 1 / XR.esc; raiz.scale.setScalar(s);
+}
+function colocarMaqueta() {
+  const p = new THREE.Vector3().setFromMatrixPosition(XR.hitM); raiz.position.copy(p);
+  const camPos = new THREE.Vector3().setFromMatrixPosition(renderer.xr.getCamera().matrixWorld);
+  XR.rotMaq = Math.atan2(camPos.x - p.x, camPos.z - p.z); raiz.rotation.set(0, XR.rotMaq, 0);
+  colocarEscala(); XR.colocado = true; raiz.visible = true; reticula.visible = false; panel();
+}
+function iniciarCalibracion() {
+  if (XR.ancla) { try { XR.ancla.delete(); } catch { } XR.ancla = null; }
+  XR.paso = 'qr1'; XR.med = {}; XR.muestreo = null; XR.aj = { x: 0, y: 0, z: 0, g: 0 }; aplicarAjuste();
+  raiz.visible = false; miraEl.hidden = false; panel();
+}
+
+async function entrar(modo) {
+  if (!RA.ok || XR) return;
+  xrEl.hidden = false;
+  let session;
+  try {
+    session = await navigator.xr.requestSession('immersive-ar', { requiredFeatures: ['hit-test'], optionalFeatures: ['dom-overlay', 'anchors'], domOverlay: { root: xrEl } });
+  } catch (e) { xrEl.hidden = true; $('#raTxt').textContent = 'No se pudo abrir la cámara: ' + (e.message || e.name) + '. Revise el permiso de cámara de Chrome.'; return; }
+  MODO = modo; raiz.visible = false;
+  XR = { session, modo, paso: modo === 'obra' ? 'qr1' : null, hit: null, hitM: new THREE.Matrix4(), med: {}, muestreo: null, aj: { x: 0, y: 0, z: 0, g: 0 }, pasoAj: 'fino',
+    esc: 50, rotMaq: 0, colocado: false, ancla: null, pedirAncla: false, _est: '', domOverlay: false, hitSrc: null, refSpace: null };
+  renderer.xr.enabled = true; renderer.xr.setReferenceSpaceType('local');
+  await renderer.xr.setSession(session);
+  XR.refSpace = renderer.xr.getReferenceSpace();
+  XR.viewerSpace = await session.requestReferenceSpace('viewer');
+  try { XR.hitSrc = await session.requestHitTestSource({ space: XR.viewerSpace, entityTypes: ['plane', 'point'] }); }
+  catch { XR.hitSrc = await session.requestHitTestSource({ space: XR.viewerSpace }); }
+  XR.domOverlay = !!session.domOverlayState;
+  session.addEventListener('end', salir);
+  session.addEventListener('select', () => { if (XR.domOverlay) return; /* sin interfaz: tocar la pantalla marca o coloca */
+    if (MODO === 'maqueta' && !XR.colocado && XR.hit) colocarMaqueta();
+    else if ((XR.paso === 'qr1' || XR.paso === 'qr2') && XR.hit && !XR.muestreo) XR.muestreo = { id: XR.paso, pts: [], t0: performance.now() };
+    else if (XR.paso === 'revisar') { XR.paso = 'ver'; raiz.visible = true; XR.pedirAncla = true; aplicar(); } });
+  scene.background = null;
+  $('#xrModo').textContent = modo === 'obra' ? 'Obra 1:1' : 'Maqueta';
+  raiz.position.set(0, 0, 0); raiz.rotation.set(0, 0, 0); raiz.scale.setScalar(1); raiz.visible = false;
+  if (modo === 'maqueta') { const t = D.base_maqueta; centro.position.set(-t.cx, -t.cy, -t.z0); XR.aj = { x: 0, y: 0, z: 0, g: 0 }; aplicarAjuste(); miraEl.hidden = true; }
+  else { centro.position.set(0, 0, 0); iniciarCalibracion(); }
+  aplicar(); panel();
+  estado(modo === 'obra' ? 'Mueva la tablet despacio, de lado a lado, apuntando a la pared.' : 'Mueva la tablet despacio sobre la mesa o el piso.');
+}
+function salir() {
+  if (!XR) return;
+  try { XR.hitSrc?.cancel(); } catch { } try { XR.ancla?.delete(); } catch { }
+  XR = null; MODO = 'previa'; xrEl.hidden = true; miraEl.hidden = true; reticula.visible = false;
+  renderer.xr.enabled = false;
+  raiz.position.set(0, 0, 0); raiz.rotation.set(0, 0, 0); raiz.scale.setScalar(1); raiz.visible = true; centro.position.set(0, 0, 0);
+  ajuste.matrix.identity(); ajuste.matrixWorldNeedsUpdate = true;
+  scene.background = fondoPrevia(); tam(); aplicar();
+}
+$('#bMaqueta').addEventListener('click', () => entrar('maqueta'));
+$('#bObra').addEventListener('click', () => entrar('obra'));
+
+const mediana = a => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _n = new THREE.Vector3();
+function cuadroXR(frame) {
+  if (!XR.hitSrc || !XR.refSpace) return;   // la sesión todavía se está preparando
+  const res = frame.getHitTestResults(XR.hitSrc);
+  let hit = null;
+  for (const h of res) {
+    const pose = h.getPose(XR.refSpace); if (!pose) continue;
+    XR.hitM.fromArray(pose.transform.matrix); _n.setFromMatrixColumn(XR.hitM, 1);   // normal de la superficie
+    if (MODO === 'maqueta' && _n.y < 0.85) continue;                             // la maqueta va sobre superficie horizontal
+    hit = pose; break;
+  }
+  const antes = !!XR.hit; XR.hit = hit;
+  const buscando = (MODO === 'maqueta' && !XR.colocado) || XR.paso === 'qr1' || XR.paso === 'qr2';
+  reticula.visible = !!hit && buscando; if (hit) { reticula.matrix.copy(XR.hitM); reticula.matrixWorldNeedsUpdate = true; }
+  miraEl.classList.toggle('lista', !!hit);
+  if (antes !== !!hit && buscando) {   /* solo habilita o deshabilita el botón: rehacer el panel perdería toques */
+    const b = $('#xMarcar') || $('#xColocar'); if (b) b.disabled = !hit || !!XR.muestreo;
+  }
+
+  /* medición de un punto: mediana de 12 lecturas para quitar el temblor de la mano */
+  if (XR.muestreo) {
+    const m = XR.muestreo;
+    if (hit) { const t = hit.transform.position; m.pts.push([t.x, t.y, t.z]); }
+    if (m.pts.length >= 12) {
+      XR.med[m.id] = [0, 1, 2].map(i => mediana(m.pts.map(p => p[i]))); XR.muestreo = null;
+      if (m.id === 'qr1') XR.paso = 'qr2';
+      else { XR.res = resolverCalibracion(REF_M[0], REF_M[1], XR.med.qr1, XR.med.qr2);
+        raiz.position.set(...XR.res.T); raiz.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), XR.res.th); raiz.scale.setScalar(1);
+        XR.paso = 'revisar'; raiz.visible = true; miraEl.hidden = true; reticula.visible = false; aplicar(); }
+      panel();
+    } else if (performance.now() - m.t0 > 2500) { XR.muestreo = null; panel(); estado('<b>No encuentro la pared.</b> Acérquese a 1–2 m, mueva un poco la tablet y vuelva a marcar.'); return; }
+  }
+  /* ancla: ARCore la corrige cuando mejora su mapa del lugar, y la casa se queda pegada a la obra */
+  if (XR.pedirAncla && frame.createAnchor) {
+    XR.pedirAncla = false; raiz.updateMatrix(); raiz.matrix.decompose(_p, _q, _s);
+    frame.createAnchor(new XRRigidTransform({ x: _p.x, y: _p.y, z: _p.z }, { x: _q.x, y: _q.y, z: _q.z, w: _q.w }), XR.refSpace).then(a => { if (XR) XR.ancla = a; else a.delete(); }).catch(() => { });
+  }
+  if (XR.ancla && frame.trackedAnchors?.has(XR.ancla)) {
+    const pa = frame.getPose(XR.ancla.anchorSpace, XR.refSpace);
+    if (pa) { raiz.matrix.fromArray(pa.transform.matrix); raiz.matrix.decompose(raiz.position, raiz.quaternion, raiz.scale); }
+  }
+  /* mensaje de estado */
+  if (MODO === 'maqueta') estado(XR.colocado ? `<b>Escala 1:${XR.esc}</b> · gire con los botones o arrastrando` : hit ? '<b>Superficie lista.</b> Toque Colocar aquí.' : 'Mueva la tablet despacio sobre la mesa o el piso.');
+  else if (XR.paso === 'qr1' || XR.paso === 'qr2') estado(XR.muestreo ? '<b>Midiendo…</b> no mueva la tablet' : hit ? `<b>Mira sobre la pared.</b> Centre la mira de la ${XR.paso === 'qr1' ? 'QR 1' : 'QR 2'} y toque Marcar.` : 'Mueva la tablet despacio, de lado a lado, apuntando a la pared.');
+  else if (XR.paso === 'revisar') estado('Revise la diferencia antes de ver el diseño.');
+  else if (XR.paso === 'ver') estado(XR.ancla ? '<b>Anclado a la obra.</b> Camine despacio; si algo se corre, use Ajuste fino.' : '<b>Colocado.</b> Camine despacio; si algo se corre, use Ajuste fino.');
+}
+
+/* ================================================================ bucle */
+renderer.setAnimationLoop((t, frame) => {
+  if (XR && frame) { try { cuadroXR(frame); } catch (e) { console.error(e); }   /* un error no debe detener la cámara */
+    raiz.updateMatrixWorld(true); U_MODELO.value.copy(ajuste.matrixWorld).invert(); renderer.render(scene, cam); return; }
+  if (ctl.update() || SUCIO) { SUCIO = false; raiz.updateMatrixWorld(true); U_MODELO.value.copy(ajuste.matrixWorld).invert(); renderer.render(scene, cam); }
+});
+
+/* ================================================================ controles de la página */
+$('#capas').addEventListener('change', ev => { const k = ev.target.dataset.k; if (!k) return; CAPAS[k] = ev.target.checked; guardar('capa:' + k, CAPAS[k]); aplicar(); });
+rango.addEventListener('input', () => { ESTADO = +rango.value; pintarEstado(); aplicar(); });
+$('#segColor').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; COLOR = b.dataset.v; guardar('color', COLOR);
+  for (const x of $('#segColor').querySelectorAll('button')) x.setAttribute('aria-pressed', String(x === b)); aplicar(); });
+for (const x of $('#segColor').querySelectorAll('button')) x.setAttribute('aria-pressed', String(x.dataset.v === COLOR));
+aplicarAjuste(); tam(); vista('3d'); aplicar();
+window.__visorRA = { PIEZAS, G, ETQ, CAPAS, aplicar, fijarEstado: i => { ESTADO = i; rango.value = String(i); pintarEstado(); aplicar(); },   // para pruebas
+  /* muestra la interfaz de la cámara sin sesión real, solo para revisar su diseño */
+  demoInterfaz: (modo, paso, extra = {}) => { MODO = modo; XR = Object.assign({ session: { end() { } }, modo, paso, hit: true, med: {}, muestreo: null, aj: { x: 0.01, y: -0.02, z: 0, g: 0.0044 },
+    pasoAj: 'fino', esc: 50, colocado: false, _est: '' }, extra); xrEl.hidden = false; miraEl.hidden = !(paso === 'qr1' || paso === 'qr2'); miraEl.classList.add('lista');
+    $('#xrModo').textContent = modo === 'obra' ? 'Obra 1:1' : 'Maqueta'; panel(); estado(extra.est || 'Mira sobre la pared.'); } };
+}
+</script>
+</body></html>
