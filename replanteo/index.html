@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#16241c">
+<title>Replanteo de Terreno</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: herramienta de campo a pantalla completa — barra de estado arriba, vista central, pestañas abajo. Alto contraste para sol directo. */
+:root{
+  --bg:#eef1ec; --card:#ffffff; --fg:#14201a; --muted:#56635b; --line:#cfd8d0;
+  --accent:#e2580b;      /* cinta de replanteo */
+  --accent-fg:#ffffff;
+  --ok:#1d8048; --warn:#b07800; --bad:#c3281f;
+  --bar:#16241c; --bar-fg:#eef1ec;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1411; --card:#17201b; --fg:#e6ece7; --muted:#9aa89f; --line:#2b3830;
+  --accent:#ff7a2e; --accent-fg:#1a0d04; --ok:#3fbf73; --warn:#e3a92b; --bad:#ff5a4e;
+  --bar:#0a0f0c; --bar-fg:#e6ece7; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1411; --card:#17201b; --fg:#e6ece7; --muted:#9aa89f; --line:#2b3830;
+  --accent:#ff7a2e; --accent-fg:#1a0d04; --ok:#3fbf73; --warn:#e3a92b; --bad:#ff5a4e;
+  --bar:#0a0f0c; --bar-fg:#e6ece7; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.4 var(--f-body);-webkit-tap-highlight-color:transparent;overflow:hidden}
+.app{display:flex;flex-direction:column;height:100%}
+header{background:var(--bar);color:var(--bar-fg);padding:calc(env(safe-area-inset-top,0px) + 8px) max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px));display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+header h1{font:600 20px/1 var(--f-display);letter-spacing:.04em;text-transform:uppercase;margin:0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip{font:500 13px/1 var(--f-mono);padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.1);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:#7a857e}
+.dot.ok{background:#3fbf73}.dot.warn{background:#e3a92b}.dot.bad{background:#ff5a4e}
+main{flex:1;min-height:0;overflow:auto;position:relative}
+.view{padding:14px max(16px,env(safe-area-inset-right,0px)) 20px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px;max-width:640px;margin:0 auto}
+.view[hidden]{display:none!important}
+#v-mapa{padding:0;max-width:none;height:100%}
+#map{height:100%;width:100%;background:var(--card)}
+nav.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border-top:1px solid var(--line);padding:0 env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+nav.tabs button{background:none;border:0;color:var(--muted);font:600 15px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;padding:14px 4px;border-top:3px solid transparent}
+nav.tabs button[aria-selected="true"]{color:var(--fg);border-top-color:var(--accent)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.btn{appearance:none;border:1px solid var(--line);background:var(--card);color:var(--fg);font:600 16px/1 var(--f-body);padding:13px 16px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.big{width:100%;font-size:19px;min-height:60px;font-family:var(--f-display);letter-spacing:.05em;text-transform:uppercase}
+.btn:disabled{opacity:.45}
+.btn:focus-visible,nav.tabs button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row > *{flex:1 1 auto}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+h2{font:600 22px/1.1 var(--f-display);text-transform:uppercase;letter-spacing:.04em;margin:0;text-wrap:balance}
+p{margin:0}
+
+/* Navegación */
+.target-bar{display:grid;grid-template-columns:48px 1fr 48px;gap:8px;align-items:center}
+.target-bar .btn{padding:0;font-size:22px}
+.target-name{text-align:center;min-width:0}
+.target-name b{display:block;font:700 24px/1.1 var(--f-display);text-transform:uppercase;letter-spacing:.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.target-name span{font-size:13px;color:var(--muted)}
+.dial-wrap{display:grid;place-items:center;position:relative}
+#dial{width:min(78vw,330px);height:auto;aspect-ratio:1;max-width:100%}
+.readout{text-align:center;display:flex;flex-direction:column;gap:4px}
+.dist{font:700 64px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.dist small{font-size:28px;font-weight:600;margin-left:4px}
+.instr{font-size:18px;font-weight:600}
+.status{font-size:14px;padding:8px 12px;border-radius:8px;text-align:center;border:1px solid var(--line)}
+.status.ok{color:var(--ok);border-color:var(--ok)}
+.status.warn{color:var(--warn);border-color:var(--warn)}
+.offsets{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.offsets div{background:var(--bg);border-radius:8px;padding:10px;text-align:center}
+.offsets b{display:block;font:700 30px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.offsets span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.progress{height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s linear}
+select,input[type=text]{font:500 16px var(--f-body);padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);min-height:44px;width:100%}
+label.lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:4px}
+
+/* Listas */
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.item .name{font:600 18px/1.15 var(--f-display);text-transform:uppercase;letter-spacing:.03em;min-width:0;overflow-wrap:anywhere}
+.item .meta{grid-column:1/-1;font-size:13px;color:var(--muted)}
+.tag{font:600 12px/1 var(--f-body);padding:5px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.tag.ok{color:var(--ok)}.tag.pend{color:var(--muted)}
+.item.sel{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.mark .coords{grid-column:1/-1;font:13px/1.5 var(--f-mono);overflow-wrap:anywhere}
+.mark input{grid-column:1/-1}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.summary b{display:block;font:700 26px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.summary span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.empty{text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center;padding:28px 16px}
+.empty svg{width:72px;height:72px;color:var(--accent)}
+#toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--bar);color:var(--bar-fg);padding:12px 16px;border-radius:10px;font-weight:500;max-width:calc(100% - 32px);z-index:2000;box-shadow:0 6px 24px rgba(0,0,0,.3)}
+.lbl-tip{background:var(--card)!important;color:var(--fg)!important;border:1px solid var(--line)!important;font:600 12px/1.1 var(--f-body)!important;padding:2px 6px!important;box-shadow:none!important}
+.lbl-tip:before{display:none}
+.leaflet-container{font-family:var(--f-body)}
+.map-ctl{position:absolute;right:calc(10px + env(safe-area-inset-right,0px));top:10px;z-index:1000;display:flex;flex-direction:column;gap:6px}
+.map-ctl .btn{min-height:42px;padding:8px 12px;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1 id="title">Replanteo</h1>
+    <span class="chip" id="chip-gps" title="Precisión del GPS"><i class="dot" id="dot-gps"></i><span id="txt-gps">GPS apagado</span></span>
+    <span class="chip" id="chip-cmp" title="Brújula"><i class="dot" id="dot-cmp"></i><span id="txt-cmp">Brújula</span></span>
+  </header>
+
+  <main>
+    <!-- NAVEGAR -->
+    <section class="view" id="v-nav">
+      <div class="card empty" id="nav-start">
+        <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M32 6v40"/><path d="M32 6l18 8-18 8"/><ellipse cx="32" cy="50" rx="20" ry="6"/></svg>
+        <h2>Ubicar los puntos del terreno</h2>
+        <p class="muted">1. Carga el archivo de Google Earth (.kml o .kmz).<br>2. Activa el GPS y la brújula.<br>3. Camina siguiendo la flecha y marca cada punto.</p>
+        <label class="btn primary big" for="file">Cargar archivo KML / KMZ</label>
+        <button class="btn big" id="btn-sensors">Activar GPS y brújula</button>
+        <button class="btn" id="btn-demo">Probar con un cuadro de ejemplo aquí</button>
+      </div>
+
+      <div id="nav-main" hidden>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="target-bar">
+            <button class="btn" id="prev" aria-label="Punto anterior">‹</button>
+            <div class="target-name"><b id="t-name">—</b><span id="t-sub"></span></div>
+            <button class="btn" id="next" aria-label="Punto siguiente">›</button>
+          </div>
+
+          <div class="dial-wrap">
+            <svg id="dial" viewBox="-110 -110 220 220" role="img" aria-label="Brújula con dirección al punto">
+              <circle r="104" fill="var(--card)" stroke="var(--line)" stroke-width="2"/>
+              <circle id="acc-ring" r="0" fill="none" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="4 4"/>
+              <g id="rose"></g>
+              <g id="arrow">
+                <path d="M0,-88 L20,-38 L7,-44 L7,40 L-7,40 L-7,-44 L-20,-38 Z" fill="var(--accent)"/>
+              </g>
+              <g id="near" style="display:none">
+                <line x1="-100" y1="0" x2="100" y2="0" stroke="var(--line)" stroke-width="1"/>
+                <line x1="0" y1="-100" x2="0" y2="100" stroke="var(--line)" stroke-width="1"/>
+                <circle id="near-tgt" r="9" fill="none" stroke="var(--accent)" stroke-width="3"/>
+                <line id="near-x1" stroke="var(--accent)" stroke-width="3"/><line id="near-x2" stroke="var(--accent)" stroke-width="3"/>
+                <circle r="6" fill="var(--fg)"/>
+                <text id="near-scale" x="0" y="80" text-anchor="middle" font-size="9" fill="var(--muted)"></text>
+              </g>
+              <path d="M0,-108 L-6,-98 L6,-98 Z" fill="var(--fg)"/>
+            </svg>
+          </div>
+
+          <div class="readout">
+            <div class="dist" id="dist">—</div>
+            <div class="instr" id="instr">Esperando señal GPS…</div>
+          </div>
+          <div class="offsets" id="offsets">
+            <div><b id="off-ns">—</b><span id="off-ns-l">Norte / Sur</span></div>
+            <div><b id="off-ew">—</b><span id="off-ew-l">Este / Oeste</span></div>
+          </div>
+          <div class="status" id="status">—</div>
+
+          <div class="card" style="display:flex;flex-direction:column;gap:10px">
+            <div class="row">
+              <div style="flex:1 1 140px"><label class="lbl" for="avg">Promediar GPS</label>
+                <select id="avg"><option value="5">5 segundos</option><option value="15">15 segundos</option><option value="30">30 segundos</option><option value="60">60 segundos</option></select></div>
+              <div style="flex:2 1 180px"><label class="lbl" for="mark-name">Nombre de la marca</label>
+                <input type="text" id="mark-name" placeholder="Igual que el punto"></div>
+            </div>
+            <button class="btn primary big" id="btn-mark">Marcar punto aquí</button>
+            <div class="progress" id="prog" hidden><i id="prog-bar"></i></div>
+            <p class="small muted">Quédate quieto con el celular sobre la estaca mientras promedia. Más tiempo da una posición más estable.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MAPA -->
+    <section class="view" id="v-mapa" hidden>
+      <div id="map"></div>
+      <div class="map-ctl">
+        <button class="btn" id="map-base">Calles</button>
+        <button class="btn" id="map-me">Centrar en mí</button>
+        <button class="btn" id="map-fit">Ver terreno</button>
+      </div>
+    </section>
+
+    <!-- PUNTOS -->
+    <section class="view" id="v-puntos" hidden>
+      <div class="card" style="display:flex;flex-direction:column;gap:12px">
+        <div class="row"><h2 id="file-name" style="flex:1 1 auto;min-width:0;overflow-wrap:anywhere">Sin archivo</h2></div>
+        <div class="summary" id="summary"></div>
+        <div class="row">
+          <label class="btn" for="file">Cargar otro archivo</label>
+          <button class="btn" id="btn-sensors2">Activar GPS y brújula</button>
+        </div>
+      </div>
+      <div class="list" id="tlist"></div>
+    </section>
+
+    <!-- MARCAS -->
+    <section class="view" id="v-marcas" hidden>
+      <div class="card" style="display:flex;flex-direction:column;gap:10px">
+        <h2>Puntos marcados en campo</h2>
+        <p class="small muted">Se guardan en este celular. Envíalos a Google Earth o pégalos en Claude para tener la ubicación real del terreno.</p>
+        <div class="row">
+          <button class="btn primary" id="exp-kml">Exportar KML</button>
+          <button class="btn" id="exp-csv">Exportar CSV</button>
+          <button class="btn" id="exp-copy">Copiar para Claude</button>
+        </div>
+      </div>
+      <div class="list" id="mlist"></div>
+      <textarea id="copy-fallback" class="mono small" style="width:100%;min-height:160px" hidden readonly></textarea>
+    </section>
+  </main>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-v="nav" aria-selected="true">Navegar</button>
+    <button role="tab" data-v="mapa" aria-selected="false">Mapa</button>
+    <button role="tab" data-v="puntos" aria-selected="false">Puntos</button>
+    <button role="tab" data-v="marcas" aria-selected="false">Marcas</button>
+  </nav>
+</div>
+<input type="file" id="file" hidden>
+<div id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const D2R=Math.PI/180, R=6371008.8;
+const LS="replanteo.v1";
+const S={targets:[],shapes:[],fileName:"",idx:0,marks:[],avgSecs:15,pos:null,heading:null,gpsOn:false,cmpOn:false,sampling:null,view:"nav"};
+
+/* ---------- almacenamiento ---------- */
+function save(){try{localStorage.setItem(LS,JSON.stringify({targets:S.targets,shapes:S.shapes,fileName:S.fileName,idx:S.idx,marks:S.marks,avgSecs:S.avgSecs}))}catch(e){}}
+function load(){try{const d=JSON.parse(localStorage.getItem(LS)||"null");if(d)Object.assign(S,d)}catch(e){}}
+
+/* ---------- geometría ---------- */
+function enu(a,b){return{e:(b.lon-a.lon)*D2R*R*Math.cos(a.lat*D2R),n:(b.lat-a.lat)*D2R*R}}
+function rel(a,b){const v=enu(a,b);return{d:Math.hypot(v.e,v.n),b:(Math.atan2(v.e,v.n)/D2R+360)%360,e:v.e,n:v.n}}
+const CARD=["Norte","Noreste","Este","Sureste","Sur","Suroeste","Oeste","Noroeste"];
+const CARD_S=["N","NE","E","SE","S","SO","O","NO"];
+const card=b=>CARD[Math.round(b/45)%8], cardS=b=>CARD_S[Math.round(b/45)%8];
+function toUTM(lat,lon){
+  const a=6378137,f=1/298.257223563,k0=0.9996,e2=f*(2-f),ep2=e2/(1-e2);
+  const zone=Math.floor((lon+180)/6)+1,lon0=((zone-1)*6-180+3)*D2R,phi=lat*D2R,lam=lon*D2R;
+  const sp=Math.sin(phi),cp=Math.cos(phi),tp=Math.tan(phi);
+  const N=a/Math.sqrt(1-e2*sp*sp),T=tp*tp,C=ep2*cp*cp,A=cp*(lam-lon0);
+  const M=a*((1-e2/4-3*e2*e2/64-5*e2**3/256)*phi-(3*e2/8+3*e2*e2/32+45*e2**3/1024)*Math.sin(2*phi)+(15*e2*e2/256+45*e2**3/1024)*Math.sin(4*phi)-(35*e2**3/3072)*Math.sin(6*phi));
+  const E=k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T*T+72*C-58*ep2)*A**5/120)+500000;
+  let Nn=k0*(M+N*tp*(A*A/2+(5-T+9*C+4*C*C)*A**4/24+(61-58*T+T*T+600*C-330*ep2)*A**6/720));
+  if(lat<0)Nn+=1e7;
+  return{e:E,n:Nn,zone,hemi:lat<0?"S":"N"};
+}
+function polyStats(pts){
+  if(pts.length<3)return null;const o=pts[0];const xy=pts.map(p=>enu(o,p));
+  let A=0,P=0;for(let i=0;i<xy.length;i++){const p=xy[i],q=xy[(i+1)%xy.length];A+=p.e*q.n-q.e*p.n;P+=Math.hypot(q.e-p.e,q.n-p.n)}
+  return{area:Math.abs(A)/2,per:P};
+}
+const fmtM=d=>d<10?d.toFixed(2):d<100?d.toFixed(1):Math.round(d).toLocaleString("es");
+
+/* ---------- KML / KMZ ---------- */
+function parseCoords(s){return s.trim().split(/\s+/).map(t=>t.split(",").map(Number)).filter(a=>a.length>=2&&isFinite(a[0])&&isFinite(a[1])).map(a=>({lon:a[0],lat:a[1]}))}
+function kids(el,name){return[...el.getElementsByTagNameNS("*",name)]}
+function childText(el,name){const c=[...el.children].find(x=>x.localName===name);return c?c.textContent.trim():""}
+function parseKML(text){
+  const xml=new DOMParser().parseFromString(text,"application/xml");
+  if(xml.getElementsByTagName("parsererror").length)throw new Error("El archivo no se pudo leer como KML.");
+  const targets=[],shapes=[];
+  const add=(name,p,from)=>{if(targets.some(t=>rel(t,p).d<0.05))return;targets.push({name,lat:p.lat,lon:p.lon,from})};
+  kids(xml,"Placemark").forEach((pm,i)=>{
+    const name=childText(pm,"name")||("Elemento "+(i+1));
+    kids(pm,"Point").forEach(pt=>{const c=kids(pt,"coordinates")[0];if(c)parseCoords(c.textContent).slice(0,1).forEach(p=>add(name,p,"punto"))});
+    kids(pm,"Polygon").forEach(pg=>{
+      const ob=kids(pg,"outerBoundaryIs")[0]||pg;const c=kids(ob,"coordinates")[0];if(!c)return;
+      let pts=parseCoords(c.textContent);if(pts.length>1&&rel(pts[0],pts[pts.length-1]).d<0.01)pts.pop();
+      shapes.push({name,type:"poly",pts});pts.forEach((p,k)=>add(name+" · V"+(k+1),p,"vértice"));
+    });
+    kids(pm,"LineString").forEach(ls=>{
+      const c=kids(ls,"coordinates")[0];if(!c)return;const pts=parseCoords(c.textContent);
+      shapes.push({name,type:"line",pts});pts.forEach((p,k)=>add(name+" · "+(k+1),p,"línea"));
+    });
+  });
+  if(!targets.length)throw new Error("El archivo no tiene puntos, líneas ni polígonos.");
+  return{targets,shapes};
+}
+async function readFile(file){
+  const buf=await file.arrayBuffer();const u=new Uint8Array(buf);
+  let text;
+  if(u[0]===0x50&&u[1]===0x4b){
+    if(!window.JSZip)throw new Error("Se necesita internet para abrir archivos .kmz. Prueba con el .kml.");
+    const zip=await JSZip.loadAsync(buf);
+    const names=Object.keys(zip.files).filter(n=>/\.kml$/i.test(n));
+    if(!names.length)throw new Error("El .kmz no contiene ningún .kml.");
+    const main=names.find(n=>/(^|\/)doc\.kml$/i.test(n))||names[0];
+    text=await zip.file(main).async("string");
+  }else text=new TextDecoder().decode(buf);
+  return parseKML(text);
+}
+$("#file").addEventListener("change",async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const r=await readFile(f);S.targets=r.targets;S.shapes=r.shapes;S.fileName=f.name.replace(/\.(kml|kmz)$/i,"");S.idx=0;save();
+    toast(r.targets.length+" puntos cargados de "+f.name);mapDirty=true;renderAll();if(S.view!=="nav")show("nav")}
+  catch(err){toast(err.message||"No se pudo leer el archivo.")}
+  e.target.value="";
+});
+
+/* ---------- sensores ---------- */
+let watchId=null;
+function startGPS(){
+  if(!("geolocation" in navigator)){toast("Este navegador no tiene GPS disponible.");return}
+  if(watchId!=null)return;
+  S.gpsOn=true;renderChips();
+  watchId=navigator.geolocation.watchPosition(p=>{
+    S.pos={lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy,alt:p.coords.altitude,t:p.timestamp};
+    if(S.sampling)S.sampling.samples.push(S.pos);
+    schedule();
+  },err=>{
+    const m={1:"Permiso de ubicación negado. Actívalo en los ajustes del navegador.",2:"No hay señal GPS. Sal a cielo abierto.",3:"El GPS tarda en responder…"};
+    toast(m[err.code]||"Error de GPS");if(err.code===1){S.gpsOn=false;navigator.geolocation.clearWatch(watchId);watchId=null;renderChips()}
+  },{enableHighAccuracy:true,maximumAge:0,timeout:30000});
+}
+let hx=0,hy=0;
+function onOri(e){
+  let h=null;
+  if(typeof e.webkitCompassHeading==="number"&&!isNaN(e.webkitCompassHeading))h=e.webkitCompassHeading;
+  else if(e.alpha!=null&&(e.absolute||e.type==="deviceorientationabsolute"))h=(360-e.alpha)%360;
+  if(h==null)return;
+  const so=(screen.orientation&&screen.orientation.angle)||window.orientation||0;h=(h+so+360)%360;
+  const k=0.25;hx=hx*(1-k)+Math.cos(h*D2R)*k;hy=hy*(1-k)+Math.sin(h*D2R)*k;
+  S.heading=(Math.atan2(hy,hx)/D2R+360)%360;S.cmpOn=true;schedule();
+}
+async function startCompass(){
+  try{if(typeof DeviceOrientationEvent!=="undefined"&&typeof DeviceOrientationEvent.requestPermission==="function"){
+    const r=await DeviceOrientationEvent.requestPermission();if(r!=="granted"){toast("Sin permiso de brújula: la flecha usará el norte arriba.");return}}}catch(e){}
+  const abs="ondeviceorientationabsolute" in window;
+  window.addEventListener(abs?"deviceorientationabsolute":"deviceorientation",onOri,true);
+  setTimeout(()=>{if(S.heading==null){toast("No se detecta brújula. La flecha se mostrará con el norte arriba.");renderChips()}},3000);
+}
+let wake=null;
+async function keepAwake(){try{if("wakeLock" in navigator&&!wake){wake=await navigator.wakeLock.request("screen");wake.addEventListener("release",()=>wake=null)}}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&S.gpsOn)keepAwake()});
+function startSensors(){startGPS();startCompass();keepAwake();renderAll()}
+$("#btn-sensors").onclick=startSensors;$("#chip-cmp").onclick=startCompass;$("#chip-gps").onclick=startSensors;$("#btn-sensors2").onclick=startSensors;
+
+/* ---------- demo ---------- */
+$("#btn-demo").onclick=()=>{
+  startSensors();toast("Esperando tu ubicación para crear el ejemplo…");
+  const t0=Date.now();const iv=setInterval(()=>{
+    if(S.pos){clearInterval(iv);const o=S.pos,dl=10/R/D2R,dlo=dl/Math.cos(o.lat*D2R);
+      const pts=[{lat:o.lat+dl,lon:o.lon-dlo},{lat:o.lat+dl,lon:o.lon+dlo},{lat:o.lat-dl,lon:o.lon+dlo},{lat:o.lat-dl,lon:o.lon-dlo}];
+      S.shapes=[{name:"Ejemplo",type:"poly",pts}];S.targets=pts.map((p,k)=>({name:"Ejemplo · V"+(k+1),lat:p.lat,lon:p.lon,from:"vértice"}));
+      S.fileName="Ejemplo (20 × 20 m)";S.idx=0;save();mapDirty=true;renderAll()}
+    else if(Date.now()-t0>30000){clearInterval(iv);toast("No llegó la ubicación. Revisa el permiso de GPS.")}
+  },500);
+};
+
+/* ---------- marcar ---------- */
+$("#avg").onchange=e=>{S.avgSecs=+e.target.value;save()};
+$("#btn-mark").onclick=()=>{
+  if(S.sampling)return;
+  if(!S.pos){toast("Todavía no hay señal GPS.");return}
+  const secs=S.avgSecs;S.sampling={samples:[S.pos],t0:Date.now()};
+  $("#btn-mark").disabled=true;$("#prog").hidden=false;
+  const iv=setInterval(()=>{
+    const el=(Date.now()-S.sampling.t0)/1000;$("#prog-bar").style.width=Math.min(100,el/secs*100)+"%";
+    $("#btn-mark").textContent="Promediando… "+Math.max(0,Math.ceil(secs-el))+" s";
+    if(el>=secs){clearInterval(iv);finishMark()}
+  },200);
+};
+function finishMark(){
+  const sm=S.sampling.samples;S.sampling=null;
+  let w=0,la=0,lo=0,ac=0;sm.forEach(p=>{const k=1/Math.max(p.acc,1)**2;w+=k;la+=p.lat*k;lo+=p.lon*k;ac+=p.acc});
+  const m={lat:la/w,lon:lo/w};
+  const spread=Math.sqrt(sm.reduce((s,p)=>{const v=enu(m,p);return s+v.e*v.e+v.n*v.n},0)/sm.length);
+  const tg=S.targets[S.idx];const r=tg?rel(tg,m):null;
+  const custom=$("#mark-name").value.trim();
+  const mark={id:Date.now().toString(36),label:custom||(tg&&r.d<15?tg.name:"Marca "+(S.marks.length+1)),lat:m.lat,lon:m.lon,
+    acc:+(ac/sm.length).toFixed(1),spread:+spread.toFixed(2),n:sm.length,t:new Date().toISOString(),
+    target:tg?tg.name:null,dE:r?+r.e.toFixed(2):null,dN:r?+r.n.toFixed(2):null,dist:r?+r.d.toFixed(2):null,
+    alt:sm.filter(p=>p.alt!=null).length?+(sm.filter(p=>p.alt!=null).reduce((s,p)=>s+p.alt,0)/sm.filter(p=>p.alt!=null).length).toFixed(1):null};
+  S.marks.push(mark);save();$("#mark-name").value="";
+  $("#btn-mark").disabled=false;$("#btn-mark").textContent="Marcar punto aquí";$("#prog").hidden=true;$("#prog-bar").style.width="0";
+  if(navigator.vibrate)navigator.vibrate([60,40,60]);
+  toast("Guardado «"+mark.label+"» · ±"+mark.acc+" m"+(r?" · a "+fmtM(r.d)+" m del punto":""));
+  mapDirty=true;renderAll();
+}
+
+/* ---------- navegación ---------- */
+$("#prev").onclick=()=>step(-1);$("#next").onclick=()=>step(1);
+function step(d){if(!S.targets.length)return;S.idx=(S.idx+d+S.targets.length)%S.targets.length;nearBuzz=false;save();renderAll()}
+function buildRose(){
+  const g=$("#rose");let h="";
+  for(let a=0;a<360;a+=10){const big=a%90===0,mid=a%30===0;const r1=104,r2=big?90:mid?94:98;const s=Math.sin(a*D2R),c=-Math.cos(a*D2R);
+    h+=`<line x1="${s*r1}" y1="${c*r1}" x2="${s*r2}" y2="${c*r2}" stroke="var(--muted)" stroke-width="${big?2.5:1}"/>`}
+  [["N",0],["E",90],["S",180],["O",270]].forEach(([l,a])=>{const s=Math.sin(a*D2R),c=-Math.cos(a*D2R);
+    h+=`<text x="${s*78}" y="${c*78+6}" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-weight="700" font-size="17" fill="${l==="N"?"var(--bad)":"var(--fg)"}">${l}</text>`});
+  g.innerHTML=h;
+}
+let nearBuzz=false;
+function renderNav(){
+  const has=S.targets.length>0;
+  $("#nav-start").hidden=has&&S.gpsOn;$("#nav-main").hidden=!has;
+  $("#btn-sensors").hidden=S.gpsOn;$("#btn-sensors2").hidden=S.gpsOn;
+  if(!has)return;
+  const t=S.targets[S.idx];
+  $("#t-name").textContent=t.name;
+  const done=S.marks.some(m=>m.target===t.name);
+  $("#t-sub").textContent=(S.idx+1)+" de "+S.targets.length+(done?" · ya marcado":"");
+  const hd=S.heading;
+  $("#rose").setAttribute("transform","rotate("+(hd!=null?-hd:0)+")");
+  if(!S.pos){$("#dist").textContent="—";$("#instr").textContent=S.gpsOn?"Esperando señal GPS…":"Activa el GPS para navegar";
+    $("#status").textContent="";$("#status").className="status";$("#off-ns").textContent="—";$("#off-ew").textContent="—";$("#arrow").style.display="none";$("#near").style.display="none";return}
+  const r=rel(S.pos,t);
+  $("#dist").innerHTML=fmtM(r.d)+"<small>m</small>";
+  $("#off-ns").textContent=Math.abs(r.n).toFixed(1)+" m "+(r.n>=0?"N":"S");
+  $("#off-ew").textContent=Math.abs(r.e).toFixed(1)+" m "+(r.e>=0?"E":"O");
+  $("#off-ns-l").textContent=r.n>=0?"Hacia el norte":"Hacia el sur";
+  $("#off-ew-l").textContent=r.e>=0?"Hacia el este":"Hacia el oeste";
+  const close=r.d<=6;
+  if(close){
+    $("#arrow").style.display="none";$("#near").style.display="";
+    const sc=80/6;let x=r.e*sc,y=-r.n*sc; // norte arriba
+    if(hd!=null){const a=-hd*D2R;const xr=x*Math.cos(a)-y*Math.sin(a),yr=x*Math.sin(a)+y*Math.cos(a);x=xr;y=yr}
+    $("#near-tgt").setAttribute("cx",x);$("#near-tgt").setAttribute("cy",y);
+    $("#near-x1").setAttributeNS(null,"x1",x-6);$("#near-x1").setAttribute("y1",y-6);$("#near-x1").setAttribute("x2",x+6);$("#near-x1").setAttribute("y2",y+6);
+    $("#near-x2").setAttribute("x1",x-6);$("#near-x2").setAttribute("y1",y+6);$("#near-x2").setAttribute("x2",x+6);$("#near-x2").setAttribute("y2",y-6);
+    $("#near-scale").textContent="vista cercana · borde = 6 m";
+    $("#acc-ring").setAttribute("r",Math.min(104,S.pos.acc*sc));
+  }else{
+    $("#near").style.display="none";$("#arrow").style.display="";$("#acc-ring").setAttribute("r",0);
+    $("#arrow").setAttribute("transform","rotate("+(hd!=null?r.b-hd:r.b)+")");
+  }
+  if(close)$("#instr").textContent="Muévete "+Math.abs(r.n).toFixed(1)+" m al "+(r.n>=0?"norte":"sur")+" y "+Math.abs(r.e).toFixed(1)+" m al "+(r.e>=0?"este":"oeste");
+  else $("#instr").textContent="Camina hacia el "+card(r.b)+" ("+Math.round(r.b)+"°)";
+  const st=$("#status");
+  if(r.d<=Math.max(1,S.pos.acc)){st.className="status ok";st.textContent="Estás sobre el punto, dentro del margen del GPS (±"+S.pos.acc.toFixed(1)+" m). Marca aquí.";
+    if(!nearBuzz&&navigator.vibrate){navigator.vibrate(200);nearBuzz=true}}
+  else if(S.pos.acc>10){st.className="status warn";st.textContent="Señal débil (±"+Math.round(S.pos.acc)+" m). Espera a cielo abierto, lejos de árboles y techos."}
+  else{st.className="status";st.textContent=hd==null?"Sin brújula: la flecha se lee con el norte arriba del celular.":"Sostén el celular plano, con la parte de arriba al frente."}
+  if(r.d>Math.max(3,S.pos.acc*1.5))nearBuzz=false;
+}
+function renderChips(){
+  const p=S.pos;const dg=$("#dot-gps");
+  if(!S.gpsOn){$("#txt-gps").textContent="GPS apagado";dg.className="dot"}
+  else if(!p){$("#txt-gps").textContent="Buscando…";dg.className="dot warn"}
+  else{$("#txt-gps").textContent="±"+(p.acc<10?p.acc.toFixed(1):Math.round(p.acc))+" m";dg.className="dot "+(p.acc<=5?"ok":p.acc<=12?"warn":"bad")}
+  const dc=$("#dot-cmp");
+  if(S.heading!=null){$("#txt-cmp").textContent=Math.round(S.heading)+"° "+cardS(S.heading);dc.className="dot ok"}
+  else{$("#txt-cmp").textContent="Sin brújula";dc.className="dot"}
+  $("#title").textContent=S.fileName||"Replanteo";
+}
+
+/* ---------- puntos ---------- */
+function renderPuntos(){
+  $("#file-name").textContent=S.fileName||"Sin archivo";
+  const poly=S.shapes.find(s=>s.type==="poly");const ps=poly?polyStats(poly.pts):null;
+  const done=new Set(S.marks.map(m=>m.target));
+  $("#summary").innerHTML=
+    `<div><b>${S.targets.length}</b><span>Puntos</span></div>`+
+    `<div><b>${S.targets.filter(t=>done.has(t.name)).length}</b><span>Marcados</span></div>`+
+    (ps?`<div><b>${ps.area>=10000?(ps.area/10000).toFixed(3)+" ha":Math.round(ps.area).toLocaleString("es")+" m²"}</b><span>Área (perím. ${Math.round(ps.per)} m)</span></div>`:`<div><b>—</b><span>Área</span></div>`);
+  const L=$("#tlist");L.innerHTML="";
+  if(!S.targets.length){L.innerHTML=`<div class="card empty"><p class="muted">Carga tu archivo de Google Earth para ver la lista de puntos.</p><label class="btn primary" for="file">Cargar archivo KML / KMZ</label></div>`;return}
+  S.targets.forEach((t,i)=>{
+    const d=S.pos?rel(S.pos,t):null;const u=toUTM(t.lat,t.lon);
+    const el=document.createElement("button");el.className="item"+(i===S.idx?" sel":"");el.style.textAlign="left";el.style.font="inherit";el.style.color="inherit";
+    el.innerHTML=`<span class="name"></span><span class="tag ${done.has(t.name)?"ok":"pend"}">${done.has(t.name)?"Marcado":"Pendiente"}</span>
+      <span class="meta mono">${t.lat.toFixed(7)}, ${t.lon.toFixed(7)} · UTM ${u.zone}${u.hemi} ${u.e.toFixed(1)} E ${u.n.toFixed(1)} N${d?` · a ${fmtM(d.d)} m ${cardS(d.b)}`:""}</span>`;
+    el.querySelector(".name").textContent=t.name;
+    el.onclick=()=>{S.idx=i;nearBuzz=false;save();show("nav")};L.appendChild(el);
+  });
+}
+
+/* ---------- marcas ---------- */
+let pendingDel=null;
+function renderMarcas(){
+  const L=$("#mlist");L.innerHTML="";
+  if(!S.marks.length){L.innerHTML=`<div class="card empty"><p class="muted">Aún no hay marcas. En la pestaña Navegar, párate sobre cada punto y toca «Marcar punto aquí».</p></div>`;return}
+  S.marks.slice().reverse().forEach(m=>{
+    const u=toUTM(m.lat,m.lon);const el=document.createElement("div");el.className="item mark";
+    el.innerHTML=`<input type="text" id="lbl-${m.id}" aria-label="Nombre de la marca"><button class="btn" style="min-height:40px;padding:8px 12px">Borrar</button>
+      <span class="coords">${m.lat.toFixed(7)}, ${m.lon.toFixed(7)}<br>UTM ${u.zone}${u.hemi} · ${u.e.toFixed(2)} E · ${u.n.toFixed(2)} N${m.alt!=null?" · alt "+m.alt+" m":""}</span>
+      <span class="meta">±${m.acc} m · ${m.n} lecturas · dispersión ${m.spread} m · ${new Date(m.t).toLocaleString("es")}${m.target?`<br>Quedó a ${m.dist} m del punto «${esc(m.target)}» (${Math.abs(m.dN)} m al ${m.dN>=0?"norte":"sur"} y ${Math.abs(m.dE)} m al ${m.dE>=0?"este":"oeste"} de él)`:""}</span>`;
+    const inp=el.querySelector("input");inp.value=m.label;inp.onchange=()=>{m.label=inp.value.trim()||m.label;save();mapDirty=true};
+    const b=el.querySelector("button");b.onclick=()=>{
+      if(pendingDel===m.id){S.marks=S.marks.filter(x=>x.id!==m.id);pendingDel=null;save();mapDirty=true;renderAll()}
+      else{pendingDel=m.id;b.textContent="¿Seguro?";b.style.color="var(--bad)";setTimeout(()=>{if(pendingDel===m.id){pendingDel=null;b.textContent="Borrar";b.style.color=""}},3000)}
+    };
+    L.appendChild(el);
+  });
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function marksKML(){
+  const pm=S.marks.map(m=>`  <Placemark><name>${esc(m.label)}</name><description>${esc(`Precisión ±${m.acc} m, ${m.n} lecturas, ${m.t}`+(m.target?`. Objetivo ${m.target}, desvío ${m.dist} m`:""))}</description><styleUrl>#marca</styleUrl><Point><coordinates>${m.lon.toFixed(8)},${m.lat.toFixed(8)},${m.alt??0}</coordinates></Point></Placemark>`).join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${esc((S.fileName||"Terreno")+" — marcado en campo")}</name>\n<Style id="marca"><IconStyle><color>ff0b58e2</color><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/paddle/orange-circle.png</href></Icon></IconStyle></Style>\n${pm}\n</Document></kml>`;
+}
+function marksCSV(){
+  const h="nombre,latitud,longitud,utm_zona,utm_este,utm_norte,altitud_m,precision_m,dispersion_m,lecturas,fecha,objetivo,desvio_m,desvio_norte_m,desvio_este_m";
+  return h+"\n"+S.marks.map(m=>{const u=toUTM(m.lat,m.lon);return[`"${m.label.replace(/"/g,'""')}"`,m.lat.toFixed(8),m.lon.toFixed(8),u.zone+u.hemi,u.e.toFixed(2),u.n.toFixed(2),m.alt??"",m.acc,m.spread,m.n,m.t,m.target?`"${m.target.replace(/"/g,'""')}"`:"",m.dist??"",m.dN??"",m.dE??""].join(",")}).join("\n");
+}
+async function deliver(name,text,type){
+  const blob=new Blob([text],{type});
+  try{const f=new File([blob],name,{type});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==="AbortError")return}
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);
+}
+const stamp=()=>new Date().toISOString().slice(0,16).replace(/[:T]/g,"-");
+const base=()=>(S.fileName||"terreno").replace(/[^\w\-áéíóúñÁÉÍÓÚÑ ]/g,"").trim().replace(/\s+/g,"_");
+$("#exp-kml").onclick=()=>{if(!S.marks.length)return toast("No hay marcas para exportar.");deliver(base()+"_campo_"+stamp()+".kml",marksKML(),"application/vnd.google-earth.kml+xml")};
+$("#exp-csv").onclick=()=>{if(!S.marks.length)return toast("No hay marcas para exportar.");deliver(base()+"_campo_"+stamp()+".csv",marksCSV(),"text/csv")};
+$("#exp-copy").onclick=async()=>{
+  if(!S.marks.length)return toast("No hay marcas para copiar.");
+  const poly=S.shapes.find(s=>s.type==="poly");const ps=poly?polyStats(poly.pts):null;
+  const txt=`Puntos del terreno «${S.fileName||"terreno"}» marcados en campo con GPS de celular (WGS84; UTM calculado).\n`+
+    (ps?`Polígono original del KML: ${poly.pts.length} vértices, área ${Math.round(ps.area)} m², perímetro ${Math.round(ps.per)} m.\n`:"")+
+    `\n`+marksCSV();
+  try{await navigator.clipboard.writeText(txt);toast("Copiado. Pégalo en tu chat con Claude.")}
+  catch(e){const ta=$("#copy-fallback");ta.hidden=false;ta.value=txt;ta.focus();ta.select();toast("Selecciona y copia el texto de abajo.")}
+};
+
+/* ---------- mapa ---------- */
+let map=null,layers=null,meM=null,meC=null,base1,base2,onSat=true,mapDirty=true,fitted=false;
+function initMap(){
+  if(map||!window.L)return;
+  map=L.map("map",{zoomControl:true,maxZoom:22});
+  base1=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:22,maxNativeZoom:19,attribution:"Imágenes © Esri"});
+  base2=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:22,maxNativeZoom:19,attribution:"© OpenStreetMap"});
+  base1.addTo(map);layers=L.layerGroup().addTo(map);
+  map.setView(S.pos?[S.pos.lat,S.pos.lon]:[8.98,-79.52],S.pos?18:7);
+}
+function renderMap(){
+  if(!map)return;
+  if(mapDirty){
+    layers.clearLayers();const cs=getComputedStyle(document.documentElement);const acc=cs.getPropertyValue("--accent").trim()||"#e2580b";
+    S.shapes.forEach(s=>{const ll=s.pts.map(p=>[p.lat,p.lon]);(s.type==="poly"?L.polygon(ll,{color:"#ffd34d",weight:3,fillOpacity:.08}):L.polyline(ll,{color:"#ffd34d",weight:3})).addTo(layers)});
+    const done=new Set(S.marks.map(m=>m.target));
+    S.targets.forEach((t,i)=>{L.circleMarker([t.lat,t.lon],{radius:i===S.idx?10:7,color:"#fff",weight:2,fillColor:done.has(t.name)?"#3fbf73":"#ffd34d",fillOpacity:1})
+      .bindTooltip(t.name,{permanent:true,direction:"top",offset:[0,-8],className:"lbl-tip"}).on("click",()=>{S.idx=i;nearBuzz=false;save();show("nav")}).addTo(layers)});
+    S.marks.forEach(m=>{L.circle([m.lat,m.lon],{radius:m.acc,color:acc,weight:1,fillOpacity:.1,interactive:false}).addTo(layers);
+      L.circleMarker([m.lat,m.lon],{radius:5,color:"#fff",weight:2,fillColor:acc,fillOpacity:1}).bindTooltip(m.label+" (marca)").addTo(layers)});
+    mapDirty=false;
+    if(!fitted&&S.targets.length){fitTerrain();fitted=true}
+  }
+  if(S.pos){const ll=[S.pos.lat,S.pos.lon];
+    if(!meM){meC=L.circle(ll,{radius:S.pos.acc,color:"#2b8cff",weight:1,fillOpacity:.12,interactive:false}).addTo(map);meM=L.circleMarker(ll,{radius:8,color:"#fff",weight:3,fillColor:"#2b8cff",fillOpacity:1}).addTo(map)}
+    else{meM.setLatLng(ll);meC.setLatLng(ll);meC.setRadius(S.pos.acc)}}
+}
+function fitTerrain(){if(!map||!S.targets.length)return;map.fitBounds(L.latLngBounds(S.targets.map(t=>[t.lat,t.lon])).pad(0.25),{maxZoom:20})}
+$("#map-fit").onclick=fitTerrain;
+$("#map-me").onclick=()=>{if(map&&S.pos)map.setView([S.pos.lat,S.pos.lon],Math.max(map.getZoom(),19));else toast("Todavía no hay ubicación GPS.")};
+$("#map-base").onclick=()=>{if(!map)return;onSat=!onSat;if(onSat){map.removeLayer(base2);base1.addTo(map);$("#map-base").textContent="Calles"}else{map.removeLayer(base1);base2.addTo(map);$("#map-base").textContent="Satélite"}};
+
+/* ---------- vistas ---------- */
+function show(v){
+  S.view=v;["nav","mapa","puntos","marcas"].forEach(x=>{$("#v-"+x).hidden=x!==v});
+  document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v));
+  $("main").style.overflow=v==="mapa"?"hidden":"auto";
+  if(v==="mapa"){initMap();mapDirty=true;setTimeout(()=>{map&&map.invalidateSize();renderMap()},50)}
+  renderAll();
+}
+document.querySelectorAll("nav.tabs button").forEach(b=>b.onclick=()=>show(b.dataset.v));
+let raf=0,lastList=0;
+function schedule(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;renderChips();if(S.view==="nav")renderNav();else if(S.view==="mapa")renderMap();else if(S.view==="puntos"&&Date.now()-lastList>3000){lastList=Date.now();renderPuntos()}})}
+function renderAll(){renderChips();renderNav();if(S.view==="puntos")renderPuntos();if(S.view==="marcas")renderMarcas();if(S.view==="mapa")renderMap()}
+let tt=0;function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,3800)}
+
+load();$("#avg").value=String(S.avgSecs);buildRose();renderAll();
+if(navigator.permissions&&navigator.permissions.query){navigator.permissions.query({name:"geolocation"}).then(p=>{if(p.state==="granted"){startGPS();if(!(typeof DeviceOrientationEvent!=="undefined"&&typeof DeviceOrientationEvent.requestPermission==="function"))startCompass()}}).catch(()=>{})}
+</script>
+</body>
+</html>
