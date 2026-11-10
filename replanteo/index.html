@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#16241c">
 <title>Replanteo de Terreno</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -44,7 +44,8 @@ main{flex:1;min-height:0;overflow:auto;position:relative}
 .view{padding:14px max(16px,env(safe-area-inset-right,0px)) 20px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px;max-width:640px;margin:0 auto}
 .view[hidden]{display:none!important}
 #v-mapa{padding:0;max-width:none;height:100%}
-#map{height:100%;width:100%;background:var(--card)}
+#map{height:100%;width:100%;background:#9aa39c repeating-linear-gradient(45deg,transparent 0 14px,rgba(255,255,255,.18) 14px 15px);touch-action:none}
+#map-aviso{position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:1000;background:var(--bar);color:var(--bar-fg);font-size:13px;padding:8px 12px;border-radius:8px;max-width:calc(100% - 32px);text-align:center}
 nav.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border-top:1px solid var(--line);padding:0 env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
 nav.tabs button{background:none;border:0;color:var(--muted);font:600 15px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;padding:14px 4px;border-top:3px solid transparent}
 nav.tabs button[aria-selected="true"]{color:var(--fg);border-top-color:var(--accent)}
@@ -186,6 +187,7 @@ label.lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var
     <!-- MAPA -->
     <section class="view" id="v-mapa" hidden>
       <div id="map"></div>
+      <div id="map-aviso" hidden></div>
       <div class="map-ctl">
         <button class="btn" id="map-base">Calles</button>
         <button class="btn" id="map-me">Centrar en mí</button>
@@ -532,9 +534,20 @@ $("#exp-copy").onclick=async()=>{
 let map=null,layers=null,meM=null,meC=null,base1,base2,onSat=true,mapDirty=true,fitted=false;
 function initMap(){
   if(map||!window.L)return;
-  map=L.map("map",{zoomControl:true,maxZoom:22});
-  base1=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:22,maxNativeZoom:19,attribution:"Imágenes © Esri"});
-  base2=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:22,maxNativeZoom:19,attribution:"© OpenStreetMap"});
+  map=L.map("map",{zoomControl:true,maxZoom:21});
+  base1=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:21,maxNativeZoom:18,keepBuffer:4,attribution:"Imágenes © Esri"});
+  base2=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:21,maxNativeZoom:19,keepBuffer:4,attribution:"© OpenStreetMap"});
+  // Si no hay foto a ese acercamiento, usar la del nivel anterior ampliada (en vez de dejar el cuadro en blanco)
+  [base1,base2].forEach(b=>{let tm=0,errs=0;
+    b.on("tileerror",e=>{
+      if(!navigator.onLine){mapAviso("Sin señal: el mapa no puede cargar. Tus puntos y el GPS siguen funcionando.");return}
+      const z=e.coords&&e.coords.z;errs++;
+      if(z&&z>=15&&z<=b.options.maxNativeZoom&&errs>=2){b.options.maxNativeZoom=z-1;errs=0;clearTimeout(tm);
+        tm=setTimeout(()=>b.redraw(),150);mapAviso("No hay foto a este acercamiento: se muestra la más cercana ampliada.")}
+    });
+    b.on("load",()=>{errs=0});
+  });
+  window.addEventListener("offline",()=>mapAviso("Sin señal: el mapa no puede cargar. Tus puntos y el GPS siguen funcionando."));
   base1.addTo(map);layers=L.layerGroup().addTo(map);
   map.setView(S.pos?[S.pos.lat,S.pos.lon]:[8.98,-79.52],S.pos?18:7);
 }
@@ -555,9 +568,10 @@ function renderMap(){
     if(!meM){meC=L.circle(ll,{radius:S.pos.acc,color:"#2b8cff",weight:1,fillOpacity:.12,interactive:false}).addTo(map);meM=L.circleMarker(ll,{radius:8,color:"#fff",weight:3,fillColor:"#2b8cff",fillOpacity:1}).addTo(map)}
     else{meM.setLatLng(ll);meC.setLatLng(ll);meC.setRadius(S.pos.acc)}}
 }
-function fitTerrain(){if(!map||!S.targets.length)return;map.fitBounds(L.latLngBounds(S.targets.map(t=>[t.lat,t.lon])).pad(0.25),{maxZoom:20})}
+let avisoT=0;function mapAviso(m){const a=$("#map-aviso");if(!a)return;a.textContent=m;a.hidden=false;clearTimeout(avisoT);avisoT=setTimeout(()=>a.hidden=true,5000)}
+function fitTerrain(){if(!map||!S.targets.length)return;map.fitBounds(L.latLngBounds(S.targets.map(t=>[t.lat,t.lon])).pad(0.25),{maxZoom:19})}
 $("#map-fit").onclick=fitTerrain;
-$("#map-me").onclick=()=>{if(map&&S.pos)map.setView([S.pos.lat,S.pos.lon],Math.max(map.getZoom(),19));else toast("Todavía no hay ubicación GPS.")};
+$("#map-me").onclick=()=>{if(map&&S.pos)map.setView([S.pos.lat,S.pos.lon],Math.max(map.getZoom(),18));else toast("Todavía no hay ubicación GPS.")};
 $("#map-base").onclick=()=>{if(!map)return;onSat=!onSat;if(onSat){map.removeLayer(base2);base1.addTo(map);$("#map-base").textContent="Calles"}else{map.removeLayer(base1);base2.addTo(map);$("#map-base").textContent="Satélite"}};
 
 /* ---------- vistas ---------- */
